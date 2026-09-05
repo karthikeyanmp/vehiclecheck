@@ -9,11 +9,33 @@ const emptyForm = {
   applicant_name: '',
   applicant_age: '',
   applicant_mobile: '',
-  district: '',
+  district: 'Thanjavur', // most applicants are from Thanjavur — prefilled, still editable
   num_persons_traveling: 1,
   allowed_entry_point_id: '',
   police_station_id: '',
 };
+
+/**
+ * Prints the certificate PDF via a hidden same-origin iframe (works in
+ * Chrome/Edge/Firefox); falls back to opening it in a new tab if the
+ * browser blocks the scripted print.
+ */
+function printCertificate(registrationId) {
+  const url = api.fileUrl(`/api/registrations/${registrationId}/certificate.pdf`);
+  const iframe = document.createElement('iframe');
+  iframe.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;';
+  iframe.src = url;
+  iframe.onload = () => {
+    try {
+      iframe.contentWindow.focus();
+      iframe.contentWindow.print();
+    } catch {
+      window.open(url, '_blank', 'noopener');
+    }
+    setTimeout(() => iframe.remove(), 60000);
+  };
+  document.body.appendChild(iframe);
+}
 
 // Registrars are tied to one station server-side (it's read off their JWT),
 // so only admin needs to pick a station here — an admin account isn't
@@ -156,10 +178,13 @@ export function NewRegistration() {
 
         {error && <div className="error">{error}</div>}
         {result && (
-          <div className="success">
-            Registered — Permit #{result.permitNumber}.{' '}
+          <div className="success" style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+            <span>Registered — Permit #{result.permitNumber}.</span>
+            <button type="button" className="primary" style={{ marginTop: 0 }} onClick={() => printCertificate(result.id)}>
+              Print Certificate
+            </button>
             <a href={api.fileUrl(`/api/registrations/${result.id}/certificate.pdf`)} target="_blank" rel="noreferrer">
-              Open certificate PDF
+              Open PDF
             </a>
           </div>
         )}
