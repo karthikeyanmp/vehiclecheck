@@ -16,7 +16,10 @@ if (password.length < 10) {
 }
 
 async function main() {
-  const client = new pg.Client({ connectionString: process.env.DATABASE_URL });
+  const client = new pg.Client({
+    connectionString: process.env.DATABASE_URL,
+    ssl: process.env.DATABASE_SSL === 'true' ? { rejectUnauthorized: false } : false,
+  });
   await client.connect();
 
   const passwordHash = await bcrypt.hash(password, 12);
