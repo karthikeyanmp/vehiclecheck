@@ -8,6 +8,7 @@
     "start": "node src/index.js",
     "migrate": "node scripts/migrate.js",
     "seed:admin": "node scripts/seed-admin.js",
+    "seed:demo": "node scripts/seed-demo-data.js",
     "sample:certificate": "node scripts/render-sample-certificate.js"
   },
   "dependencies": {
