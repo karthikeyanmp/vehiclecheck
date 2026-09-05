@@ -1,0 +1,17 @@
+# Convenience only: a local Postgres for development.
+# Not intended for production hosting of this data — see README's
+# "Deployment & data handling" section.
+version: "3.8"
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: vehicle_permit
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+volumes:
+  pgdata:

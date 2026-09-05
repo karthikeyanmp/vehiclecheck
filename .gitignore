@@ -1,0 +1,21 @@
+node_modules/
+.env
+.env.local
+.env.*.local
+
+# Uploaded RC copies / photos — runtime data, recreated on boot
+server/uploads/
+
+# Official emblem asset — supply your own, not committed
+server/src/assets/tn-police-emblem.png
+
+# Build output (Render rebuilds it) and local test renders
+dist/
+server/sample-certificate.*
+*.log
+
+.DS_Store
+
+# Local notes / design references — never commit
+/wsl postgres installations steps.txt
+/WhatsApp Image*.jpeg

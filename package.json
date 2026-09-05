@@ -1,0 +1,16 @@
+{
+  "name": "vehicle-permit-platform",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Emmanuel Sekaran Remembrance Day vehicle-permit platform (server + client)",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "npm --prefix server install && npm --prefix client install --include=dev && npm --prefix client run build",
+    "migrate": "npm --prefix server run migrate",
+    "start": "npm --prefix server start",
+    "dev:server": "npm --prefix server run dev",
+    "dev:client": "npm --prefix client run dev"
+  }
+}
