@@ -5,12 +5,15 @@ import { verifyQrToken } from '../services/qr.js';
 
 /**
  * District entry/exit monitoring — a separate checkpoint type from the
- * Madurai event gates in scan.js. This tracks a vehicle leaving and
- * returning through its *home* district's border (currently only a
- * Thanjavur checkpoint exists — see migrations/003_district_monitoring.sql).
- * Same QR/permit as the event gates; this just tracks its own status
- * (`district_status`) on the same registration row, independent of the
- * event's `current_status`.
+ * Madurai event gates in scan.js. Tracks a vehicle leaving and returning
+ * through its *home* district's border (Thanjavur only, for now). Same
+ * QR/permit as the event gates; it just tracks its own status
+ * (`district_status`) on the registration row, independent of the event's
+ * `current_status`.
+ *
+ * A district_scanner isn't pinned to one checkpoint — the officer picks
+ * which of their district's checkpoints they're at, and it's sent as
+ * `checkpointId` with every lookup/verify.
  */
 export const districtScanRouter = Router();
 districtScanRouter.use(requireAuth);
@@ -21,10 +24,10 @@ const NEXT_ACTION = {
   returned: null, // round trip complete — nothing further to verify here
 };
 
-async function loadForCheckpoint(regId) {
+async function loadRegistration(regId) {
   const { rows } = await query(
     `SELECT id, applicant_name, vehicle_number, vehicle_type, district,
-            num_persons_traveling, applicant_photo_path, district_status
+            num_persons_traveling, district_status
      FROM registrations WHERE id = $1`,
     [regId],
   );
@@ -32,12 +35,17 @@ async function loadForCheckpoint(regId) {
 }
 
 async function loadCheckpoint(checkpointId) {
+  if (!checkpointId) return undefined;
   const { rows } = await query('SELECT id, name, district FROM district_checkpoints WHERE id = $1', [checkpointId]);
   return rows[0];
 }
 
+function districtMismatch(reg, checkpoint) {
+  return (reg.district || '').trim().toLowerCase() !== (checkpoint?.district || '').trim().toLowerCase();
+}
+
 districtScanRouter.post('/lookup', requireRole('district_scanner'), async (req, res) => {
-  const { token } = req.body || {};
+  const { token, checkpointId } = req.body || {};
   if (!token) return res.status(400).json({ error: 'token is required' });
 
   let regId;
@@ -47,9 +55,9 @@ districtScanRouter.post('/lookup', requireRole('district_scanner'), async (req, 
     return res.status(400).json({ error: 'QR code is invalid or expired' });
   }
 
-  const reg = await loadForCheckpoint(regId);
+  const reg = await loadRegistration(regId);
   if (!reg) return res.status(404).json({ error: 'No registration found for this QR' });
-  const checkpoint = await loadCheckpoint(req.user.districtCheckpointId);
+  const checkpoint = await loadCheckpoint(checkpointId ?? req.user.districtCheckpointId);
 
   res.json({
     registrationId: reg.id,
@@ -61,18 +69,22 @@ districtScanRouter.post('/lookup', requireRole('district_scanner'), async (req, 
     districtStatus: reg.district_status,
     registrationDistrict: reg.district,
     checkpointDistrict: checkpoint?.district,
-    // Flagged, not blocked — same judgement-call pattern as the gate mismatch
-    // in scan.js. A vehicle registered under a different home district
-    // passing through this checkpoint isn't necessarily an error.
-    districtMismatch: (reg.district || '').trim().toLowerCase() !== (checkpoint?.district || '').trim().toLowerCase(),
+    // Flagged, not blocked — same judgement-call pattern as the gate mismatch.
+    districtMismatch: districtMismatch(reg, checkpoint),
     nextAction: NEXT_ACTION[reg.district_status],
   });
 });
 
 districtScanRouter.post('/verify', requireRole('district_scanner'), async (req, res) => {
-  const { token, action } = req.body || {};
+  const { token, action, checkpointId } = req.body || {};
   if (!token || !['departed', 'returned'].includes(action)) {
     return res.status(400).json({ error: 'token and a valid action are required' });
+  }
+
+  const chosenCheckpointId = checkpointId ?? req.user.districtCheckpointId;
+  const checkpoint = await loadCheckpoint(chosenCheckpointId);
+  if (!checkpoint) {
+    return res.status(400).json({ error: 'Select which checkpoint you are at before verifying' });
   }
 
   let regId;
@@ -101,17 +113,16 @@ districtScanRouter.post('/verify', requireRole('district_scanner'), async (req, 
       };
     }
 
-    const checkpoint = await loadCheckpoint(req.user.districtCheckpointId);
-    const districtMismatch = (reg.district || '').trim().toLowerCase() !== (checkpoint?.district || '').trim().toLowerCase();
+    const mismatch = districtMismatch(reg, checkpoint);
 
     await client.query('UPDATE registrations SET district_status = $1 WHERE id = $2', [action, regId]);
     await client.query(
       `INSERT INTO district_scan_log (registration_id, action, scanned_by, district_checkpoint_id, district_mismatch)
        VALUES ($1, $2, $3, $4, $5)`,
-      [regId, action, req.user.id, req.user.districtCheckpointId, districtMismatch],
+      [regId, action, req.user.id, checkpoint.id, mismatch],
     );
 
-    return { status: 200, body: { registrationId: regId, districtStatus: action, districtMismatch } };
+    return { status: 200, body: { registrationId: regId, districtStatus: action, districtMismatch: mismatch } };
   });
 
   res.status(result.status).json(result.body);

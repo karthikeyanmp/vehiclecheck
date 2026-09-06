@@ -39,9 +39,8 @@ usersRouter.post('/', async (req, res) => {
   if (role === 'gate_scanner' && !entry_point_id) {
     return res.status(400).json({ error: 'gate_scanner accounts require entry_point_id' });
   }
-  if (role === 'district_scanner' && !district_checkpoint_id) {
-    return res.status(400).json({ error: 'district_scanner accounts require district_checkpoint_id' });
-  }
+  // district_checkpoint_id is optional for district_scanner — it's just a
+  // default; the officer picks their checkpoint in the scanner UI each shift.
   if (password.length < 10) {
     return res.status(400).json({ error: 'password must be at least 10 characters' });
   }

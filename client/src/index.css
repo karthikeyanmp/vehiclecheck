@@ -97,9 +97,9 @@ th { color: #555; font-weight: 600; font-size: 12px; text-transform: uppercase; 
   font-size: 12px;
   font-weight: 600;
 }
-.status-not_arrived { background: #eee; color: #555; }
-.status-verified_entered { background: #e2f3ff; color: #0a5b9c; }
-.status-verified_exited { background: #e6f7e9; color: var(--ok); }
+.status-not_arrived, .status-not_departed { background: #eee; color: #555; }
+.status-verified_entered, .status-departed { background: #e2f3ff; color: #0a5b9c; }
+.status-verified_exited, .status-returned { background: #e6f7e9; color: var(--ok); }
 
 .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 16px; }
 .summary-tile { background: white; border: 1px solid var(--border); border-radius: 8px; padding: 16px; text-align: center; }

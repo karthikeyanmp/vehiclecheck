@@ -24,7 +24,7 @@ hitting an admin or registrar endpoint gets a 403, not a hidden button.
 | `admin` | View/edit all registrations, dashboard, export, manage master data & user accounts | — |
 | `registrar` | Create registrations for their own station, view/print certificates for their own station | See other stations, use gate/district-scan endpoints |
 | `gate_scanner` | Scan a QR at a Madurai entry point → see name/photo/vehicle/allowed gate → mark entered/exited (event-side status) | See RC copies, mobile numbers, or edit anything |
-| `district_scanner` | Scan a QR at a home-district checkpoint (Thanjavur only, for now) → mark departed/returned (district-side status, independent of the event status) | Same restrictions as `gate_scanner` |
+| `district_scanner` | Pick a home-district checkpoint (Thanjavur, for now) → scan a QR → mark departed/returned (district-side status, independent of the event status) | Same restrictions as `gate_scanner` |
 
 QR codes encode **only a signed, opaque token** (`{ regId }` signed with
 `QR_JWT_SECRET`) — never applicant data. The gate/checkpoint app sends the
@@ -37,12 +37,16 @@ district), so one never overwrites the other.
 ### District entry/exit monitoring
 
 A separate module from the Madurai gates: it watches a vehicle leave and
-return through its **home district's** border, not the event's. Modeled
-exactly like the gate-scanning flow (`district_checkpoints` mirrors
-`entry_points`, `district_scan_log` mirrors `scan_log`), so extending it to
-another district later is just a master-data row — see Admin → Master Data —
-plus a `district_scanner` account tied to it, no code change needed. Only a
-Thanjavur checkpoint is seeded today.
+return through its **home district's** border, not the event's. The point is
+the headcount — how many vehicles and people left the district for the event,
+and how many have come back (Admin → Dashboard shows this).
+
+Thanjavur has several exit/return points, so a `district_scanner` isn't
+pinned to one — the officer picks their checkpoint from a dropdown each
+shift, and it's recorded with every scan. Manage the checkpoint list in
+Admin → Master Data; extending monitoring to another district is just adding
+rows there, no code change. A few example Thanjavur checkpoints are seeded —
+rename them to the real ones.
 
 ## First-time setup
 
@@ -93,8 +97,9 @@ npm run dev                   # http://localhost:5173
 ```
 
 Log in as the admin account you seeded, then create `registrar`, `gate_scanner`,
-and `district_scanner` accounts from Admin → Users (each tied to one station,
-gate, or checkpoint — the account can't be created without that link).
+and `district_scanner` accounts from Admin → Users. A `registrar` is tied to
+one station and a `gate_scanner` to one entry point (required); a
+`district_scanner` may have a default checkpoint but picks one per shift.
 
 ## Verifying the certificate template
 

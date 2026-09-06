@@ -92,9 +92,9 @@ export function Users() {
           )}
           {form.role === 'district_scanner' && (
             <div>
-              <label>District Checkpoint</label>
-              <select value={form.district_checkpoint_id} onChange={(e) => setField('district_checkpoint_id', e.target.value)} required>
-                <option value="" disabled>Select…</option>
+              <label>Default Checkpoint (optional — the officer picks one each shift)</label>
+              <select value={form.district_checkpoint_id} onChange={(e) => setField('district_checkpoint_id', e.target.value)}>
+                <option value="">None</option>
                 {districtCheckpoints.map((dc) => <option key={dc.id} value={dc.id}>{dc.name} ({dc.district})</option>)}
               </select>
             </div>

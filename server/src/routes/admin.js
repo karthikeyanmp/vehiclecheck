@@ -27,13 +27,17 @@ adminRouter.get('/summary', async (_req, res) => {
     `),
     // District monitoring is scoped to whichever districts have a
     // checkpoint (only Thanjavur for now) — counted by the registration's
-    // own home district, not by checkpoint, so it reads correctly even if a
-    // registration was scanned at a mismatched checkpoint.
+    // own home district. "left" = departed + returned (ever crossed out);
+    // persons_* sum num_persons_traveling for the same buckets.
     query(`
       SELECT district,
         count(*) FILTER (WHERE district_status = 'not_departed') AS not_departed,
         count(*) FILTER (WHERE district_status = 'departed') AS departed,
-        count(*) FILTER (WHERE district_status = 'returned') AS returned
+        count(*) FILTER (WHERE district_status = 'returned') AS returned,
+        count(*) FILTER (WHERE district_status IN ('departed','returned')) AS left_total,
+        coalesce(sum(num_persons_traveling) FILTER (WHERE district_status = 'departed'), 0) AS persons_departed,
+        coalesce(sum(num_persons_traveling) FILTER (WHERE district_status = 'returned'), 0) AS persons_returned,
+        coalesce(sum(num_persons_traveling) FILTER (WHERE district_status IN ('departed','returned')), 0) AS persons_left_total
       FROM registrations
       WHERE district IN (SELECT DISTINCT district FROM district_checkpoints)
       GROUP BY district ORDER BY district

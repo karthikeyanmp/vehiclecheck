@@ -13,7 +13,7 @@ registrationsRouter.use(requireAuth);
 const REG_SUMMARY_COLUMNS = `
   r.id, r.vehicle_number, r.vehicle_type, r.applicant_name, r.applicant_mobile,
   r.applicant_age, r.district, r.num_persons_traveling, r.current_status,
-  r.permit_number, r.created_at,
+  r.district_status, r.permit_number, r.created_at,
   ps.station_name, ep.name AS allowed_entry_point_name
 `;
 
@@ -120,7 +120,7 @@ registrationsRouter.get('/', requireRole('registrar', 'admin'), async (req, res)
   const values = [];
   scopeToOwnStation(req, where, values);
 
-  const { search, status } = req.query;
+  const { search, status, district_status } = req.query;
   if (search) {
     values.push(`%${search}%`);
     where.push(`(r.vehicle_number ILIKE $${values.length} OR r.applicant_name ILIKE $${values.length} OR r.applicant_mobile ILIKE $${values.length})`);
@@ -128,6 +128,10 @@ registrationsRouter.get('/', requireRole('registrar', 'admin'), async (req, res)
   if (status) {
     values.push(status);
     where.push(`r.current_status = $${values.length}`);
+  }
+  if (district_status) {
+    values.push(district_status);
+    where.push(`r.district_status = $${values.length}`);
   }
 
   const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';

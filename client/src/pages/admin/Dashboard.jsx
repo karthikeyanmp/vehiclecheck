@@ -50,17 +50,34 @@ export function Dashboard() {
       </div>
 
       <div className="card">
-        <h2>District Departure/Return Monitoring</h2>
+        <h2>District Departure / Return Monitoring</h2>
         <p style={{ color: '#666', fontSize: 13, marginTop: -8 }}>
-          Only districts with an active checkpoint are tracked here (Thanjavur only, for now).
+          How many vehicles and people left the district to attend the event, and how many have returned.
+          Tracked only for districts with a checkpoint (Thanjavur, for now).
         </p>
         <table>
-          <thead><tr><th>District</th><th>Not Departed</th><th>Departed</th><th>Returned</th></tr></thead>
+          <thead>
+            <tr>
+              <th>District</th>
+              <th>Left (total)</th>
+              <th>Returned</th>
+              <th>Still out</th>
+              <th>Not yet departed</th>
+            </tr>
+          </thead>
           <tbody>
             {summary.districtTotals.map((r, i) => (
-              <tr key={i}><td>{r.district}</td><td>{r.not_departed}</td><td>{r.departed}</td><td>{r.returned}</td></tr>
+              <tr key={i}>
+                <td>{r.district}</td>
+                <td>{r.left_total} vehicles / {r.persons_left_total} persons</td>
+                <td>{r.returned} vehicles / {r.persons_returned} persons</td>
+                <td>{r.departed} vehicles / {r.persons_departed} persons</td>
+                <td>{r.not_departed} vehicles</td>
+              </tr>
             ))}
-            {summary.districtTotals.length === 0 && <tr><td colSpan={4} style={{ color: '#888' }}>No district checkpoints configured yet.</td></tr>}
+            {summary.districtTotals.length === 0 && (
+              <tr><td colSpan={5} style={{ color: '#888' }}>No district checkpoints configured yet.</td></tr>
+            )}
           </tbody>
         </table>
       </div>

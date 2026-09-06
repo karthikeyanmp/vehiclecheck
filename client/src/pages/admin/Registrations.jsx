@@ -6,6 +6,7 @@ export function Registrations() {
   const [rows, setRows] = useState([]);
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('');
+  const [districtStatus, setDistrictStatus] = useState('');
   const [error, setError] = useState('');
   const [editing, setEditing] = useState(null); // registration id being edited
   const [entryPoints, setEntryPoints] = useState([]);
@@ -15,10 +16,11 @@ export function Registrations() {
     const params = new URLSearchParams();
     if (search) params.set('search', search);
     if (status) params.set('status', status);
+    if (districtStatus) params.set('district_status', districtStatus);
     api.get(`/api/registrations?${params}`).then(setRows).catch((e) => setError(e.message));
   }
 
-  useEffect(load, [search, status]);
+  useEffect(load, [search, status, districtStatus]);
   useEffect(() => {
     api.get('/api/master-data/entry-points').then(setEntryPoints).catch(() => {});
   }, []);
@@ -44,11 +46,17 @@ export function Registrations() {
       <div className="toolbar">
         <Link className="secondary" style={{ textDecoration: 'none' }} to="/admin/registrations/new">+ New Registration</Link>
         <input style={{ maxWidth: 280 }} placeholder="Search vehicle no. / name / mobile" value={search} onChange={(e) => setSearch(e.target.value)} />
-        <select style={{ maxWidth: 200 }} value={status} onChange={(e) => setStatus(e.target.value)}>
-          <option value="">All statuses</option>
-          <option value="not_arrived">Not Arrived</option>
-          <option value="verified_entered">Inside</option>
-          <option value="verified_exited">Exited</option>
+        <select style={{ maxWidth: 190 }} value={status} onChange={(e) => setStatus(e.target.value)}>
+          <option value="">Event: all</option>
+          <option value="not_arrived">Event: not arrived</option>
+          <option value="verified_entered">Event: inside</option>
+          <option value="verified_exited">Event: exited</option>
+        </select>
+        <select style={{ maxWidth: 210 }} value={districtStatus} onChange={(e) => setDistrictStatus(e.target.value)}>
+          <option value="">District: all</option>
+          <option value="not_departed">District: not departed</option>
+          <option value="departed">District: departed (still out)</option>
+          <option value="returned">District: returned</option>
         </select>
       </div>
       {error && <div className="error">{error}</div>}
@@ -57,7 +65,8 @@ export function Registrations() {
           <thead>
             <tr>
               <th>Permit #</th><th>Vehicle</th><th>Applicant</th><th>Mobile</th>
-              <th>Station</th><th>Entry Point</th><th>Status</th><th></th>
+              <th>District</th><th>Persons</th><th>Entry Point</th>
+              <th>Event</th><th>District</th><th></th>
             </tr>
           </thead>
           <tbody>
@@ -67,7 +76,8 @@ export function Registrations() {
                 <td>{r.vehicle_number}</td>
                 <td>{r.applicant_name}</td>
                 <td>{r.applicant_mobile}</td>
-                <td>{r.station_name}</td>
+                <td>{r.district}</td>
+                <td>{r.num_persons_traveling}</td>
                 <td>
                   {editing === r.id ? (
                     <select value={editValue} onChange={(e) => setEditValue(e.target.value)}>
@@ -76,6 +86,7 @@ export function Registrations() {
                   ) : r.allowed_entry_point_name}
                 </td>
                 <td><span className={`status-pill status-${r.current_status}`}>{r.current_status}</span></td>
+                <td><span className={`status-pill status-${r.district_status}`}>{r.district_status}</span></td>
                 <td>
                   {editing === r.id ? (
                     <>
@@ -91,7 +102,7 @@ export function Registrations() {
                 </td>
               </tr>
             ))}
-            {rows.length === 0 && <tr><td colSpan={8} style={{ color: '#888' }}>No matching registrations.</td></tr>}
+            {rows.length === 0 && <tr><td colSpan={10} style={{ color: '#888' }}>No matching registrations.</td></tr>}
           </tbody>
         </table>
       </div>

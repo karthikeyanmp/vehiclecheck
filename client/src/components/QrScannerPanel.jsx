@@ -17,9 +17,14 @@ const READER_ID = 'qr-reader';
  * @param {string} [mismatchField] - key on the lookup response for the warning flag
  * @param {string} [mismatchMessage] - shown when mismatchField is true
  * @param {(lookup: object) => import('react').ReactNode} [renderExtra] - extra detail lines specific to this checkpoint type
+ * @param {import('react').ReactNode} [headerControls] - rendered above the camera (e.g. a checkpoint selector)
+ * @param {object} [extraBody] - merged into every lookup/verify request body
+ * @param {boolean} [ready=true] - when false, scanning is disabled (e.g. no checkpoint picked yet)
+ * @param {string} [notReadyMessage] - shown when ready is false
  */
 export function QrScannerPanel({
   title, lookupUrl, verifyUrl, statusField, statusLabels, mismatchField, mismatchMessage, renderExtra,
+  headerControls, extraBody, ready = true, notReadyMessage,
 }) {
   const scannerRef = useRef(null);
   const [scanning, setScanning] = useState(false);
@@ -64,7 +69,7 @@ export function QrScannerPanel({
   async function handleScanned(token) {
     setLastToken(token);
     try {
-      const res = await api.post(lookupUrl, { token });
+      const res = await api.post(lookupUrl, { token, ...extraBody });
       setLookup(res);
     } catch (err) {
       setError(err.message);
@@ -78,7 +83,7 @@ export function QrScannerPanel({
     setError('');
     setMessage('');
     try {
-      const res = await api.post(verifyUrl, { token: lastToken, action });
+      const res = await api.post(verifyUrl, { token: lastToken, action, ...extraBody });
       setMessage(`Marked "${statusLabels[action] || action}" successfully.`);
       setLookup((l) => (l ? { ...l, [statusField]: res[statusField], nextAction: null } : l));
     } catch (err) {
@@ -103,7 +108,9 @@ export function QrScannerPanel({
     <div className="page">
       <h1>{title}</h1>
       <div className="card">
-        {!scanning && <button className="primary" onClick={startScanning}>Start Camera</button>}
+        {headerControls && <div style={{ marginBottom: 16 }}>{headerControls}</div>}
+        {!ready && <div className="error">{notReadyMessage || 'Make a selection above to start scanning.'}</div>}
+        {!scanning && <button className="primary" onClick={startScanning} disabled={!ready}>Start Camera</button>}
         {scanning && <button className="secondary" onClick={stopScanning}>Stop Camera</button>}
         <div id={READER_ID} style={{ maxWidth: 360, marginTop: 16 }} />
       </div>
