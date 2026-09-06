@@ -85,11 +85,14 @@ usersRouter.post('/', async (req, res) => {
 });
 
 usersRouter.patch('/:id', async (req, res) => {
-  const { active, police_station_id, entry_point_id, password } = req.body || {};
+  const { active, full_name, police_station_id, entry_point_id, password } = req.body || {};
   const checkpointIds = req.body?.district_checkpoint_ids;
 
   if (password && password.length < 10) {
     return res.status(400).json({ error: 'password must be at least 10 characters' });
+  }
+  if (full_name !== undefined && !full_name.trim()) {
+    return res.status(400).json({ error: 'full_name cannot be blank' });
   }
 
   const notFound = await withTransaction(async (client) => {
@@ -98,6 +101,7 @@ usersRouter.patch('/:id', async (req, res) => {
     let i = 1;
 
     if (active !== undefined) { sets.push(`active = $${i++}`); values.push(active); }
+    if (full_name !== undefined) { sets.push(`full_name = $${i++}`); values.push(full_name.trim()); }
     if (police_station_id !== undefined) { sets.push(`police_station_id = $${i++}`); values.push(police_station_id || null); }
     if (entry_point_id !== undefined) { sets.push(`entry_point_id = $${i++}`); values.push(entry_point_id || null); }
     if (password) { sets.push(`password_hash = $${i++}`); values.push(await bcrypt.hash(password, 12)); }

@@ -5,7 +5,6 @@ import { api } from '../../api.js';
 export function Registrations() {
   const [rows, setRows] = useState([]);
   const [search, setSearch] = useState('');
-  const [status, setStatus] = useState('');
   const [districtStatus, setDistrictStatus] = useState('');
   const [error, setError] = useState('');
   const [editing, setEditing] = useState(null); // registration id being edited
@@ -15,12 +14,11 @@ export function Registrations() {
   function load() {
     const params = new URLSearchParams();
     if (search) params.set('search', search);
-    if (status) params.set('status', status);
     if (districtStatus) params.set('district_status', districtStatus);
     api.get(`/api/registrations?${params}`).then(setRows).catch((e) => setError(e.message));
   }
 
-  useEffect(load, [search, status, districtStatus]);
+  useEffect(load, [search, districtStatus]);
   useEffect(() => {
     api.get('/api/master-data/entry-points').then(setEntryPoints).catch(() => {});
   }, []);
@@ -46,17 +44,11 @@ export function Registrations() {
       <div className="toolbar">
         <Link className="secondary" style={{ textDecoration: 'none' }} to="/admin/registrations/new">+ New Registration</Link>
         <input style={{ maxWidth: 280 }} placeholder="Search vehicle no. / name / mobile" value={search} onChange={(e) => setSearch(e.target.value)} />
-        <select style={{ maxWidth: 190 }} value={status} onChange={(e) => setStatus(e.target.value)}>
-          <option value="">Event: all</option>
-          <option value="not_arrived">Event: not arrived</option>
-          <option value="verified_entered">Event: inside</option>
-          <option value="verified_exited">Event: exited</option>
-        </select>
-        <select style={{ maxWidth: 210 }} value={districtStatus} onChange={(e) => setDistrictStatus(e.target.value)}>
-          <option value="">District: all</option>
-          <option value="not_departed">District: not departed</option>
-          <option value="departed">District: departed (still out)</option>
-          <option value="returned">District: returned</option>
+        <select style={{ maxWidth: 240 }} value={districtStatus} onChange={(e) => setDistrictStatus(e.target.value)}>
+          <option value="">District status: all</option>
+          <option value="not_departed">Not departed</option>
+          <option value="departed">Departed (still out)</option>
+          <option value="returned">Returned</option>
         </select>
       </div>
       {error && <div className="error">{error}</div>}
@@ -66,7 +58,7 @@ export function Registrations() {
             <tr>
               <th>Permit #</th><th>Vehicle</th><th>Applicant</th><th>Mobile</th>
               <th>District</th><th>Persons</th><th>Entry Point</th>
-              <th>Event</th><th>District</th><th></th>
+              <th>District status</th><th></th>
             </tr>
           </thead>
           <tbody>
@@ -85,7 +77,6 @@ export function Registrations() {
                     </select>
                   ) : r.allowed_entry_point_name}
                 </td>
-                <td><span className={`status-pill status-${r.current_status}`}>{r.current_status}</span></td>
                 <td><span className={`status-pill status-${r.district_status}`}>{r.district_status}</span></td>
                 <td>
                   {editing === r.id ? (
@@ -102,7 +93,7 @@ export function Registrations() {
                 </td>
               </tr>
             ))}
-            {rows.length === 0 && <tr><td colSpan={10} style={{ color: '#888' }}>No matching registrations.</td></tr>}
+            {rows.length === 0 && <tr><td colSpan={9} style={{ color: '#888' }}>No matching registrations.</td></tr>}
           </tbody>
         </table>
       </div>
