@@ -1,6 +1,10 @@
 import { useEffect, useState } from 'react';
 import { api } from '../../api.js';
 
+function sum(rows, key) {
+  return rows.reduce((t, r) => t + Number(r[key] || 0), 0);
+}
+
 export function Dashboard() {
   const [summary, setSummary] = useState(null);
   const [error, setError] = useState('');
@@ -12,71 +16,83 @@ export function Dashboard() {
   if (error) return <div className="page"><div className="error">{error}</div></div>;
   if (!summary) return <div className="page">Loading…</div>;
 
-  const t = summary.totals;
+  const { districtTotals, byStation, byCheckpoint } = summary;
 
   return (
     <div className="page">
-      <h1>Dashboard</h1>
+      <h1>District Departure / Return Monitoring</h1>
+      <p style={{ color: '#666', fontSize: 13, marginTop: -8 }}>
+        Vehicles and people that left the district for the event, and how many are back.
+        Tracked for districts with a checkpoint (Thanjavur).
+      </p>
 
       <div className="summary-grid">
-        <div className="summary-tile"><div className="n">{t.total}</div><div className="label">Total Registered</div></div>
-        <div className="summary-tile"><div className="n">{t.currently_inside}</div><div className="label">Currently Inside</div></div>
-        <div className="summary-tile"><div className="n">{t.exited}</div><div className="label">Exited</div></div>
-        <div className="summary-tile"><div className="n">{t.not_arrived}</div><div className="label">Not Yet Arrived</div></div>
+        <div className="summary-tile">
+          <div className="n">{sum(districtTotals, 'left_total')}</div>
+          <div className="label">Left the district<br />({sum(districtTotals, 'persons_left')} persons)</div>
+        </div>
+        <div className="summary-tile">
+          <div className="n">{sum(districtTotals, 'returned')}</div>
+          <div className="label">Returned<br />({sum(districtTotals, 'persons_returned')} persons)</div>
+        </div>
+        <div className="summary-tile">
+          <div className="n">{sum(districtTotals, 'still_out')}</div>
+          <div className="label">Still out<br />({sum(districtTotals, 'persons_still_out')} persons)</div>
+        </div>
+        <div className="summary-tile">
+          <div className="n">{sum(districtTotals, 'not_left')}</div>
+          <div className="label">Not left yet</div>
+        </div>
       </div>
 
       <div className="card" style={{ marginTop: 20 }}>
-        <h2>By Entry Point</h2>
-        <table>
-          <thead><tr><th>Entry Point</th><th>Status</th><th>Count</th></tr></thead>
-          <tbody>
-            {summary.byEntryPoint.map((r, i) => (
-              <tr key={i}><td>{r.entry_point}</td><td>{r.current_status}</td><td>{r.n}</td></tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      <div className="card">
         <h2>By Police Station</h2>
         <table>
-          <thead><tr><th>Station</th><th>District</th><th>Status</th><th>Count</th></tr></thead>
+          <thead>
+            <tr>
+              <th>Station</th><th>District</th>
+              <th>Not left</th><th>Left</th><th>Returned</th><th>Still out</th>
+              <th>Persons left</th><th>Persons returned</th>
+            </tr>
+          </thead>
           <tbody>
-            {summary.byStation.map((r, i) => (
-              <tr key={i}><td>{r.station_name}</td><td>{r.district}</td><td>{r.current_status}</td><td>{r.n}</td></tr>
+            {byStation.map((r, i) => (
+              <tr key={i}>
+                <td>{r.station_name}</td><td>{r.district}</td>
+                <td>{r.not_left}</td><td>{r.left_total}</td><td>{r.returned}</td><td>{r.still_out}</td>
+                <td>{r.persons_left}</td><td>{r.persons_returned}</td>
+              </tr>
             ))}
+            {byStation.length === 0 && (
+              <tr><td colSpan={8} style={{ color: '#888' }}>No registrations from a monitored district yet.</td></tr>
+            )}
           </tbody>
         </table>
       </div>
 
       <div className="card">
-        <h2>District Departure / Return Monitoring</h2>
+        <h2>By District Checkpoint</h2>
         <p style={{ color: '#666', fontSize: 13, marginTop: -8 }}>
-          How many vehicles and people left the district to attend the event, and how many have returned.
-          Tracked only for districts with a checkpoint (Thanjavur, for now).
+          Grouped by the checkpoint a vehicle first departed through.
         </p>
         <table>
           <thead>
             <tr>
-              <th>District</th>
-              <th>Left (total)</th>
-              <th>Returned</th>
-              <th>Still out</th>
-              <th>Not yet departed</th>
+              <th>Checkpoint</th><th>District</th>
+              <th>Left via here</th><th>Returned</th><th>Not returned</th>
+              <th>Persons left</th><th>Persons returned</th>
             </tr>
           </thead>
           <tbody>
-            {summary.districtTotals.map((r, i) => (
+            {byCheckpoint.map((r, i) => (
               <tr key={i}>
-                <td>{r.district}</td>
-                <td>{r.left_total} vehicles / {r.persons_left_total} persons</td>
-                <td>{r.returned} vehicles / {r.persons_returned} persons</td>
-                <td>{r.departed} vehicles / {r.persons_departed} persons</td>
-                <td>{r.not_departed} vehicles</td>
+                <td>{r.checkpoint}</td><td>{r.district}</td>
+                <td>{r.left_via}</td><td>{r.returned}</td><td>{r.still_out}</td>
+                <td>{r.persons_left}</td><td>{r.persons_returned}</td>
               </tr>
             ))}
-            {summary.districtTotals.length === 0 && (
-              <tr><td colSpan={5} style={{ color: '#888' }}>No district checkpoints configured yet.</td></tr>
+            {byCheckpoint.length === 0 && (
+              <tr><td colSpan={7} style={{ color: '#888' }}>No departures scanned yet.</td></tr>
             )}
           </tbody>
         </table>

@@ -5,56 +5,63 @@ import { requireAuth, requireRole } from '../middleware/auth.js';
 export const adminRouter = Router();
 adminRouter.use(requireAuth, requireRole('admin'));
 
+// District departure/return monitoring only. "left" = ever crossed out
+// (departed + returned); "still out" = departed and not yet returned;
+// "not left" = not_departed. persons_* sum num_persons_traveling.
+// Scoped to registrations whose home district has a checkpoint (Thanjavur).
+const MONITORED = "district IN (SELECT DISTINCT district FROM district_checkpoints)";
+
 adminRouter.get('/summary', async (_req, res) => {
-  const [totals, byEntryPoint, byStation, districtTotals, byDistrictCheckpoint] = await Promise.all([
-    query(`
-      SELECT
-        count(*) FILTER (WHERE true) AS total,
-        count(*) FILTER (WHERE current_status = 'not_arrived') AS not_arrived,
-        count(*) FILTER (WHERE current_status = 'verified_entered') AS currently_inside,
-        count(*) FILTER (WHERE current_status = 'verified_exited') AS exited
-      FROM registrations
-    `),
-    query(`
-      SELECT ep.name AS entry_point, r.current_status, count(*) AS n
-      FROM registrations r JOIN entry_points ep ON ep.id = r.allowed_entry_point_id
-      GROUP BY ep.name, r.current_status ORDER BY ep.name
-    `),
-    query(`
-      SELECT ps.station_name, ps.district, r.current_status, count(*) AS n
-      FROM registrations r JOIN police_stations ps ON ps.id = r.police_station_id
-      GROUP BY ps.station_name, ps.district, r.current_status ORDER BY ps.district, ps.station_name
-    `),
-    // District monitoring is scoped to whichever districts have a
-    // checkpoint (only Thanjavur for now) — counted by the registration's
-    // own home district. "left" = departed + returned (ever crossed out);
-    // persons_* sum num_persons_traveling for the same buckets.
+  const [districtTotals, byStation, byCheckpoint] = await Promise.all([
     query(`
       SELECT district,
-        count(*) FILTER (WHERE district_status = 'not_departed') AS not_departed,
-        count(*) FILTER (WHERE district_status = 'departed') AS departed,
-        count(*) FILTER (WHERE district_status = 'returned') AS returned,
-        count(*) FILTER (WHERE district_status IN ('departed','returned')) AS left_total,
-        coalesce(sum(num_persons_traveling) FILTER (WHERE district_status = 'departed'), 0) AS persons_departed,
-        coalesce(sum(num_persons_traveling) FILTER (WHERE district_status = 'returned'), 0) AS persons_returned,
-        coalesce(sum(num_persons_traveling) FILTER (WHERE district_status IN ('departed','returned')), 0) AS persons_left_total
-      FROM registrations
-      WHERE district IN (SELECT DISTINCT district FROM district_checkpoints)
+        count(*) FILTER (WHERE district_status = 'not_departed')            AS not_left,
+        count(*) FILTER (WHERE district_status IN ('departed','returned'))  AS left_total,
+        count(*) FILTER (WHERE district_status = 'returned')                AS returned,
+        count(*) FILTER (WHERE district_status = 'departed')                AS still_out,
+        coalesce(sum(num_persons_traveling) FILTER (WHERE district_status IN ('departed','returned')), 0) AS persons_left,
+        coalesce(sum(num_persons_traveling) FILTER (WHERE district_status = 'returned'), 0)               AS persons_returned,
+        coalesce(sum(num_persons_traveling) FILTER (WHERE district_status = 'departed'), 0)               AS persons_still_out
+      FROM registrations WHERE ${MONITORED}
       GROUP BY district ORDER BY district
     `),
+    // By the police station that registered the vehicle.
     query(`
-      SELECT dc.name AS checkpoint, dc.district, dsl.action, count(*) AS n
-      FROM district_scan_log dsl JOIN district_checkpoints dc ON dc.id = dsl.district_checkpoint_id
-      GROUP BY dc.name, dc.district, dsl.action ORDER BY dc.district, dc.name
+      SELECT ps.station_name, ps.district,
+        count(*) FILTER (WHERE r.district_status = 'not_departed')            AS not_left,
+        count(*) FILTER (WHERE r.district_status IN ('departed','returned'))  AS left_total,
+        count(*) FILTER (WHERE r.district_status = 'returned')                AS returned,
+        count(*) FILTER (WHERE r.district_status = 'departed')                AS still_out,
+        coalesce(sum(r.num_persons_traveling) FILTER (WHERE r.district_status IN ('departed','returned')), 0) AS persons_left,
+        coalesce(sum(r.num_persons_traveling) FILTER (WHERE r.district_status = 'returned'), 0)               AS persons_returned
+      FROM registrations r JOIN police_stations ps ON ps.id = r.police_station_id
+      WHERE r.${MONITORED}
+      GROUP BY ps.station_name, ps.district ORDER BY ps.district, ps.station_name
+    `),
+    // By the checkpoint a vehicle first departed through, and whether it's back.
+    query(`
+      WITH departures AS (
+        SELECT DISTINCT ON (registration_id) registration_id, district_checkpoint_id
+        FROM district_scan_log WHERE action = 'departed'
+        ORDER BY registration_id, scanned_at
+      )
+      SELECT dc.name AS checkpoint, dc.district,
+        count(*)                                                       AS left_via,
+        count(*) FILTER (WHERE r.district_status = 'returned')         AS returned,
+        count(*) FILTER (WHERE r.district_status = 'departed')         AS still_out,
+        coalesce(sum(r.num_persons_traveling), 0)                                                   AS persons_left,
+        coalesce(sum(r.num_persons_traveling) FILTER (WHERE r.district_status = 'returned'), 0)      AS persons_returned
+      FROM departures d
+      JOIN registrations r ON r.id = d.registration_id
+      JOIN district_checkpoints dc ON dc.id = d.district_checkpoint_id
+      GROUP BY dc.name, dc.district ORDER BY dc.district, dc.name
     `),
   ]);
 
   res.json({
-    totals: totals.rows[0],
-    byEntryPoint: byEntryPoint.rows,
-    byStation: byStation.rows,
     districtTotals: districtTotals.rows,
-    byDistrictCheckpoint: byDistrictCheckpoint.rows,
+    byStation: byStation.rows,
+    byCheckpoint: byCheckpoint.rows,
   });
 });
 
