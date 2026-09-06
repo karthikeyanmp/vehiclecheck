@@ -50,6 +50,7 @@ export function NewRegistration() {
   const [coPassengers, setCoPassengers] = useState([]);
   const [photo, setPhoto] = useState(null);
   const [rc, setRc] = useState(null);
+  const [vehiclePhoto, setVehiclePhoto] = useState(null);
   const [error, setError] = useState('');
   const [result, setResult] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -79,6 +80,7 @@ export function NewRegistration() {
       for (const [k, v] of Object.entries(form)) fd.append(k, v);
       if (photo) fd.append('applicant_photo', photo);
       if (rc) fd.append('rc_copy', rc);
+      if (vehiclePhoto) fd.append('vehicle_photo', vehiclePhoto);
       fd.append('co_passengers', JSON.stringify(coPassengers.filter((p) => p.name)));
 
       const res = await api.postForm('/api/registrations', fd);
@@ -87,6 +89,7 @@ export function NewRegistration() {
       setCoPassengers([]);
       setPhoto(null);
       setRc(null);
+      setVehiclePhoto(null);
       e.target.reset();
     } catch (err) {
       setError(err.message);
@@ -153,11 +156,18 @@ export function NewRegistration() {
           </div>
           <div>
             <label>Applicant Photo (optional)</label>
-            <input type="file" accept="image/*" onChange={(e) => setPhoto(e.target.files[0])} />
+            <input type="file" accept="image/*" capture="environment" onChange={(e) => setPhoto(e.target.files[0] || null)} />
+            <small style={{ color: '#888' }}>On a phone/tablet this opens the camera.</small>
           </div>
           <div>
-            <label>RC Copy (image or PDF, optional)</label>
-            <input type="file" accept="image/*,application/pdf" onChange={(e) => setRc(e.target.files[0])} />
+            <label>RC Photo (optional)</label>
+            <input type="file" accept="image/*,application/pdf" capture="environment" onChange={(e) => setRc(e.target.files[0] || null)} />
+            <small style={{ color: '#888' }}>Photograph the RC, or attach an image/PDF on desktop.</small>
+          </div>
+          <div>
+            <label>Vehicle Photo (optional)</label>
+            <input type="file" accept="image/*" capture="environment" onChange={(e) => setVehiclePhoto(e.target.files[0] || null)} />
+            <small style={{ color: '#888' }}>On a phone/tablet this opens the camera.</small>
           </div>
         </div>
 

@@ -8,18 +8,20 @@ const UPLOAD_ROOT = path.resolve('uploads');
 // Make sure the upload dirs exist. On an ephemeral host (Render free tier,
 // etc.) the disk is wiped on every restart, so these have to be recreated
 // on boot rather than relied on from the repo.
-for (const sub of ['photos', 'rc']) {
+for (const sub of ['photos', 'rc', 'vehicle']) {
   fs.mkdirSync(path.join(UPLOAD_ROOT, sub), { recursive: true });
 }
 
 const PHOTO_MIME = new Set(['image/jpeg', 'image/png', 'image/webp']);
 const RC_MIME = new Set(['image/jpeg', 'image/png', 'image/webp', 'application/pdf']);
 
+// Which uploads/ subdir each multipart field lands in.
+const FIELD_SUBDIR = { rc_copy: 'rc', vehicle_photo: 'vehicle', applicant_photo: 'photos' };
+
 export const uploadRegistrationFiles = multer({
   storage: multer.diskStorage({
     destination(req, file, cb) {
-      const subdir = file.fieldname === 'rc_copy' ? 'rc' : 'photos';
-      cb(null, path.join(UPLOAD_ROOT, subdir));
+      cb(null, path.join(UPLOAD_ROOT, FIELD_SUBDIR[file.fieldname] || 'photos'));
     },
     filename(_req, file, cb) {
       const ext = path.extname(file.originalname).toLowerCase();
@@ -37,6 +39,7 @@ export const uploadRegistrationFiles = multer({
 }).fields([
   { name: 'applicant_photo', maxCount: 1 },
   { name: 'rc_copy', maxCount: 1 },
+  { name: 'vehicle_photo', maxCount: 1 },
 ]);
 
 export function absoluteUploadPath(relativePath) {

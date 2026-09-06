@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { query, withTransaction } from '../db.js';
 import { requireAuth, requireRole } from '../middleware/auth.js';
 import { verifyQrToken } from '../services/qr.js';
+import { scanFileUrls } from './scan.js';
 
 /**
  * District entry/exit monitoring — a separate checkpoint type from the
@@ -27,7 +28,8 @@ const NEXT_ACTION = {
 async function loadRegistration(regId) {
   const { rows } = await query(
     `SELECT id, applicant_name, vehicle_number, vehicle_type, district,
-            num_persons_traveling, district_status
+            num_persons_traveling, district_status,
+            applicant_photo_path, rc_copy_path, vehicle_photo_path
      FROM registrations WHERE id = $1`,
     [regId],
   );
@@ -81,7 +83,7 @@ districtScanRouter.post('/lookup', requireRole('district_scanner'), async (req, 
     vehicleNumber: reg.vehicle_number,
     vehicleType: reg.vehicle_type,
     numPersonsTraveling: reg.num_persons_traveling,
-    photoUrl: `/api/scan/photo/${reg.id}`,
+    ...scanFileUrls(reg),
     districtStatus: reg.district_status,
     registrationDistrict: reg.district,
     checkpointDistrict: checkpoint?.district,

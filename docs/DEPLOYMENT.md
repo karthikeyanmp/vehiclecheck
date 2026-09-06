@@ -511,7 +511,7 @@ guess.
 ### 5.3 Security
 
 - **Encrypt the disk** (or at least the partition holding the database and
-  `uploads/`). It holds RC copies, applicant photos, and phone numbers.
+  `uploads/`). It holds RC copies, applicant photos, vehicle photos, and phone numbers.
   Use LUKS at install time, or move the Postgres data directory and `uploads/`
   onto an encrypted volume.
 - **UPS** on the server — a power cut mid-event otherwise takes registration

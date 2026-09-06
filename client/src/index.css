@@ -118,4 +118,14 @@ th { color: #555; font-weight: 600; font-size: 12px; text-transform: uppercase; 
 
 .scan-result-photo { width: 140px; height: 140px; object-fit: cover; border-radius: 6px; border: 1px solid var(--border); }
 
+.scan-thumbs { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 12px; }
+.scan-thumb { display: flex; flex-direction: column; align-items: center; gap: 4px; text-decoration: none; color: #666; font-size: 12px; }
+.scan-thumb img,
+.scan-thumb-pdf {
+  width: 96px; height: 96px; border-radius: 6px; border: 1px solid var(--border);
+  object-fit: cover; background: #f4f4f4;
+}
+.scan-thumb-pdf { display: flex; align-items: center; justify-content: center; font-weight: 700; color: #b23b3b; }
+.scan-thumb-label { font-weight: 600; }
+
 .toolbar { display: flex; gap: 12px; align-items: center; margin-bottom: 16px; flex-wrap: wrap; }

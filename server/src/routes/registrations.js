@@ -32,8 +32,9 @@ registrationsRouter.post(
   async (req, res) => {
     const b = req.body || {};
     const files = req.files || {};
-    const photo = files.applicant_photo?.[0]; // both optional
+    const photo = files.applicant_photo?.[0]; // all optional
     const rc = files.rc_copy?.[0];
+    const vehiclePhoto = files.vehicle_photo?.[0];
 
     const required = ['vehicle_number', 'vehicle_type', 'applicant_name', 'applicant_mobile', 'district', 'allowed_entry_point_id'];
     for (const field of required) {
@@ -70,16 +71,17 @@ registrationsRouter.post(
         await client.query(
           `INSERT INTO registrations (
              id, vehicle_number, vehicle_type, rc_copy_path, applicant_photo_path,
-             applicant_name, applicant_age, applicant_mobile, district,
+             vehicle_photo_path, applicant_name, applicant_age, applicant_mobile, district,
              police_station_id, num_persons_traveling, allowed_entry_point_id,
              registered_by, qr_token, permit_number
-           ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,
+           ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`,
           [
             regId,
             b.vehicle_number.trim().toUpperCase(),
             b.vehicle_type,
             rc ? `rc/${rc.filename}` : null,
             photo ? `photos/${photo.filename}` : null,
+            vehiclePhoto ? `vehicle/${vehiclePhoto.filename}` : null,
             b.applicant_name.trim(),
             b.applicant_age || null,
             b.applicant_mobile.trim(),
@@ -109,6 +111,7 @@ registrationsRouter.post(
       // Clean up orphaned uploads if the DB insert failed.
       if (rc) fs.unlink(absoluteUploadPath(`rc/${rc.filename}`), () => {});
       if (photo) fs.unlink(absoluteUploadPath(`photos/${photo.filename}`), () => {});
+      if (vehiclePhoto) fs.unlink(absoluteUploadPath(`vehicle/${vehiclePhoto.filename}`), () => {});
       throw err;
     }
   },
@@ -227,8 +230,13 @@ registrationsRouter.get('/:id/file/:type', requireRole('registrar', 'admin'), as
   if (!assertStationAccess(req, res, reg)) return;
 
   const { type } = req.params;
-  if (!['photo', 'rc'].includes(type)) return res.status(400).json({ error: 'invalid file type' });
-  const relPath = type === 'photo' ? reg.applicant_photo_path : reg.rc_copy_path;
+  const relPathByType = {
+    photo: reg.applicant_photo_path,
+    rc: reg.rc_copy_path,
+    vehicle: reg.vehicle_photo_path,
+  };
+  if (!(type in relPathByType)) return res.status(400).json({ error: 'invalid file type' });
+  const relPath = relPathByType[type];
   if (!relPath) return res.status(404).json({ error: `no ${type} on file for this registration` });
   res.sendFile(absoluteUploadPath(relPath));
 });

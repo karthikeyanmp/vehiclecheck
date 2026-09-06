@@ -5,6 +5,39 @@ import { api } from '../api.js';
 const READER_ID = 'qr-reader';
 
 /**
+ * The applicant / RC / vehicle images for the scanned permit, shown as small
+ * thumbnails an officer can tap to open full-size for a closer look. Anything
+ * not on file is simply omitted; a PDF RC shows as a link rather than an image.
+ */
+function VerificationThumbs({ lookup }) {
+  const items = [
+    { url: lookup.photoUrl, label: 'Applicant', isPdf: false },
+    { url: lookup.vehiclePhotoUrl, label: 'Vehicle', isPdf: false },
+    { url: lookup.rcUrl, label: 'RC', isPdf: lookup.rcIsPdf },
+  ].filter((it) => it.url);
+
+  if (items.length === 0) return null;
+
+  return (
+    <div className="scan-thumbs">
+      {items.map((it) => {
+        const href = api.fileUrl(it.url);
+        return (
+          <a key={it.label} href={href} target="_blank" rel="noreferrer" className="scan-thumb">
+            {it.isPdf ? (
+              <span className="scan-thumb-pdf">PDF</span>
+            ) : (
+              <img src={href} alt={it.label} onError={(e) => { e.currentTarget.style.visibility = 'hidden'; }} />
+            )}
+            <span className="scan-thumb-label">{it.label}</span>
+          </a>
+        );
+      })}
+    </div>
+  );
+}
+
+/**
  * Shared camera-scan + lookup/verify flow used by both the Madurai event
  * gate scanner and the district checkpoint scanner — same interaction, just
  * pointed at different endpoints and status vocabularies.
@@ -148,20 +181,13 @@ export function QrScannerPanel({
 
       {lookup && (
         <div className="card">
-          <div style={{ display: 'flex', gap: 20 }}>
-            <img
-              className="scan-result-photo"
-              src={api.fileUrl(lookup.photoUrl)}
-              alt="Applicant"
-              onError={(e) => { e.currentTarget.style.visibility = 'hidden'; }}
-            />
-            <div>
-              <h2>{lookup.applicantName}</h2>
-              <p>Vehicle: <strong>{lookup.vehicleNumber}</strong> ({lookup.vehicleType})</p>
-              <p>Persons traveling: {lookup.numPersonsTraveling}</p>
-              {renderExtra?.(lookup)}
-              <p>Status: <span className={`status-pill status-${status}`}>{statusLabels[status] || status}</span></p>
-            </div>
+          <div>
+            <h2 style={{ marginTop: 0 }}>{lookup.applicantName}</h2>
+            <p>Vehicle: <strong>{lookup.vehicleNumber}</strong> ({lookup.vehicleType})</p>
+            <p>Persons traveling: {lookup.numPersonsTraveling}</p>
+            {renderExtra?.(lookup)}
+            <p>Status: <span className={`status-pill status-${status}`}>{statusLabels[status] || status}</span></p>
+            <VerificationThumbs lookup={lookup} />
           </div>
 
           {mismatch && <div className="gate-mismatch">⚠ {mismatchMessage}</div>}

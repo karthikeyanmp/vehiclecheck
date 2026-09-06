@@ -16,7 +16,8 @@ const NEXT_ACTION = {
 async function loadForGate(regId) {
   const { rows } = await query(
     `SELECT r.id, r.applicant_name, r.vehicle_number, r.vehicle_type,
-            r.num_persons_traveling, r.applicant_photo_path, r.current_status,
+            r.num_persons_traveling, r.applicant_photo_path, r.rc_copy_path,
+            r.vehicle_photo_path, r.current_status,
             r.allowed_entry_point_id, ep.name AS allowed_entry_point_name
      FROM registrations r
      JOIN entry_points ep ON ep.id = r.allowed_entry_point_id
@@ -24,6 +25,21 @@ async function loadForGate(regId) {
     [regId],
   );
   return rows[0];
+}
+
+/**
+ * The verification-thumbnail URLs a scanner needs for a registration, or
+ * null for anything not on file. Shared by the event gate and the district
+ * checkpoint — both show the same applicant / RC / vehicle images to help an
+ * officer confirm they're looking at the right vehicle and person.
+ */
+export function scanFileUrls(reg) {
+  return {
+    photoUrl: reg.applicant_photo_path ? `/api/scan/file/${reg.id}/photo` : null,
+    rcUrl: reg.rc_copy_path ? `/api/scan/file/${reg.id}/rc` : null,
+    vehiclePhotoUrl: reg.vehicle_photo_path ? `/api/scan/file/${reg.id}/vehicle` : null,
+    rcIsPdf: !!reg.rc_copy_path && reg.rc_copy_path.toLowerCase().endsWith('.pdf'),
+  };
 }
 
 /**
@@ -51,7 +67,7 @@ scanRouter.post('/lookup', requireRole('gate_scanner'), async (req, res) => {
     vehicleNumber: reg.vehicle_number,
     vehicleType: reg.vehicle_type,
     numPersonsTraveling: reg.num_persons_traveling,
-    photoUrl: `/api/scan/photo/${reg.id}`,
+    ...scanFileUrls(reg),
     currentStatus: reg.current_status,
     allowedEntryPointName: reg.allowed_entry_point_name,
     gateMismatch: reg.allowed_entry_point_id !== req.user.entryPointId,
@@ -60,10 +76,26 @@ scanRouter.post('/lookup', requireRole('gate_scanner'), async (req, res) => {
 });
 
 /**
- * Minimal photo-thumbnail endpoint for gate/checkpoint personnel — no RC, no
- * other fields. Shared by both scan.js (event gates) and district-scan.js
- * (home-district checkpoints), since both need the same thumbnail.
+ * Verification-image endpoint for gate/checkpoint personnel: the applicant
+ * photo, the RC copy, or the vehicle photo. Shared by both scan.js (event
+ * gates) and district-scan.js (home-district checkpoints) — an officer needs
+ * to eyeball all three to confirm the vehicle and driver at the barrier.
  */
+const SCAN_FILE_COLUMN = {
+  photo: 'applicant_photo_path',
+  rc: 'rc_copy_path',
+  vehicle: 'vehicle_photo_path',
+};
+
+scanRouter.get('/file/:id/:kind', requireRole('gate_scanner', 'district_scanner', 'registrar', 'admin'), async (req, res) => {
+  const column = SCAN_FILE_COLUMN[req.params.kind];
+  if (!column) return res.status(400).json({ error: 'invalid file kind' });
+  const { rows } = await query(`SELECT ${column} AS path FROM registrations WHERE id = $1`, [req.params.id]);
+  if (!rows[0] || !rows[0].path) return res.status(404).end();
+  res.sendFile(absoluteUploadPath(rows[0].path));
+});
+
+// Back-compat alias for the original applicant-photo-only route.
 scanRouter.get('/photo/:id', requireRole('gate_scanner', 'district_scanner', 'registrar', 'admin'), async (req, res) => {
   const { rows } = await query('SELECT applicant_photo_path FROM registrations WHERE id = $1', [req.params.id]);
   if (!rows[0] || !rows[0].applicant_photo_path) return res.status(404).end();
