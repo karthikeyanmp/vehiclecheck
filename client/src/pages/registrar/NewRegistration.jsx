@@ -105,7 +105,7 @@ export function NewRegistration() {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
           <div>
             <label>Vehicle Number</label>
-            <input value={form.vehicle_number} onChange={(e) => setField('vehicle_number', e.target.value)} required placeholder="TN 58 AB 1234" />
+            <input value={form.vehicle_number} onChange={(e) => setField('vehicle_number', e.target.value.toUpperCase())} required placeholder="TN 58 AB 1234" style={{ textTransform: 'uppercase' }} />
           </div>
           <div>
             <label>Vehicle Type</label>
@@ -116,7 +116,7 @@ export function NewRegistration() {
           </div>
           <div>
             <label>Applicant Name</label>
-            <input value={form.applicant_name} onChange={(e) => setField('applicant_name', e.target.value)} required />
+            <input value={form.applicant_name} onChange={(e) => setField('applicant_name', e.target.value.toUpperCase())} required style={{ textTransform: 'uppercase' }} />
           </div>
           <div>
             <label>Applicant Age</label>

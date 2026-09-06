@@ -82,7 +82,7 @@ registrationsRouter.post(
             rc ? `rc/${rc.filename}` : null,
             photo ? `photos/${photo.filename}` : null,
             vehiclePhoto ? `vehicle/${vehiclePhoto.filename}` : null,
-            b.applicant_name.trim(),
+            b.applicant_name.trim().toUpperCase(),
             b.applicant_age || null,
             b.applicant_mobile.trim(),
             b.district.trim(),
