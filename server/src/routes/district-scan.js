@@ -34,19 +34,36 @@ async function loadRegistration(regId) {
   return rows[0];
 }
 
-async function loadCheckpoint(checkpointId) {
-  if (!checkpointId) return undefined;
-  const { rows } = await query('SELECT id, name, district FROM district_checkpoints WHERE id = $1', [checkpointId]);
-  return rows[0];
+async function assignedCheckpoints(userId) {
+  const { rows } = await query(
+    `SELECT dc.id, dc.name, dc.district
+     FROM user_district_checkpoints udc
+     JOIN district_checkpoints dc ON dc.id = udc.district_checkpoint_id
+     WHERE udc.user_id = $1 ORDER BY dc.district, dc.name`,
+    [userId],
+  );
+  return rows;
 }
 
 function districtMismatch(reg, checkpoint) {
   return (reg.district || '').trim().toLowerCase() !== (checkpoint?.district || '').trim().toLowerCase();
 }
 
+// The list of checkpoints THIS officer is allowed to work — the scanner UI
+// only offers these.
+districtScanRouter.get('/checkpoints', requireRole('district_scanner'), async (req, res) => {
+  res.json(await assignedCheckpoints(req.user.id));
+});
+
 districtScanRouter.post('/lookup', requireRole('district_scanner'), async (req, res) => {
   const { token, checkpointId } = req.body || {};
   if (!token) return res.status(400).json({ error: 'token is required' });
+
+  const allowed = await assignedCheckpoints(req.user.id);
+  const checkpoint = allowed.find((c) => String(c.id) === String(checkpointId));
+  if (!checkpoint) {
+    return res.status(403).json({ error: 'That checkpoint is not one of your assigned checkpoints' });
+  }
 
   let regId;
   try {
@@ -57,7 +74,6 @@ districtScanRouter.post('/lookup', requireRole('district_scanner'), async (req, 
 
   const reg = await loadRegistration(regId);
   if (!reg) return res.status(404).json({ error: 'No registration found for this QR' });
-  const checkpoint = await loadCheckpoint(checkpointId ?? req.user.districtCheckpointId);
 
   res.json({
     registrationId: reg.id,
@@ -81,10 +97,10 @@ districtScanRouter.post('/verify', requireRole('district_scanner'), async (req, 
     return res.status(400).json({ error: 'token and a valid action are required' });
   }
 
-  const chosenCheckpointId = checkpointId ?? req.user.districtCheckpointId;
-  const checkpoint = await loadCheckpoint(chosenCheckpointId);
+  const allowed = await assignedCheckpoints(req.user.id);
+  const checkpoint = allowed.find((c) => String(c.id) === String(checkpointId));
   if (!checkpoint) {
-    return res.status(400).json({ error: 'Select which checkpoint you are at before verifying' });
+    return res.status(403).json({ error: 'That checkpoint is not one of your assigned checkpoints' });
   }
 
   let regId;

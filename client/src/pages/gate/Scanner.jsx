@@ -1,4 +1,5 @@
 import { QrScannerPanel } from '../../components/QrScannerPanel.jsx';
+import { useAuth } from '../../auth/AuthContext.jsx';
 
 const STATUS_LABELS = {
   not_arrived: 'Not Arrived',
@@ -7,6 +8,15 @@ const STATUS_LABELS = {
 };
 
 export function Scanner() {
+  const { user } = useAuth();
+
+  const assignment = (
+    <div style={{ fontSize: 14 }}>
+      {user.policeStationName && <div>Station: <strong>{user.policeStationName}</strong></div>}
+      <div>Entry / exit point: <strong>{user.entryPointName || '—'}</strong></div>
+    </div>
+  );
+
   return (
     <QrScannerPanel
       title="Gate Scanner"
@@ -17,6 +27,7 @@ export function Scanner() {
       mismatchField="gateMismatch"
       mismatchMessage="This permit is assigned to a different entry point. Use judgement before allowing entry here."
       renderExtra={(lookup) => <p>Allowed entry point: {lookup.allowedEntryPointName}</p>}
+      headerControls={assignment}
     />
   );
 }

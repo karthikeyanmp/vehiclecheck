@@ -68,7 +68,12 @@ async function main() {
   await ensureUser({ username: 'reg1', password: 'RegistrarPass123', full_name: 'Demo Registrar', role: 'registrar', police_station_id: stations[0].id });
   await ensureUser({ username: 'gate1', password: 'GatePass12345', full_name: 'Demo Gate Officer', role: 'gate_scanner', entry_point_id: entryPoints[0].id });
   if (checkpoints.length) {
-    await ensureUser({ username: 'dist1', password: 'DistrictPass123', full_name: 'Demo District Officer', role: 'district_scanner', district_checkpoint_id: checkpoints[0].id });
+    await ensureUser({
+      username: 'dist1', password: 'DistrictPass123', full_name: 'Demo District Officer',
+      role: 'district_scanner',
+      police_station_id: stations[0].id,
+      district_checkpoint_ids: checkpoints.map((c) => c.id), // assign all for the demo
+    });
   }
 
   console.log('Registrations:');

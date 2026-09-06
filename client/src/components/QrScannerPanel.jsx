@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Html5Qrcode } from 'html5-qrcode';
 import { api } from '../api.js';
 
@@ -27,12 +27,20 @@ export function QrScannerPanel({
   headerControls, extraBody, ready = true, notReadyMessage,
 }) {
   const scannerRef = useRef(null);
+  const resultRef = useRef(null);
+  const handlingRef = useRef(false); // guards against repeat decodes of one frame
   const [scanning, setScanning] = useState(false);
   const [lastToken, setLastToken] = useState(null);
   const [lookup, setLookup] = useState(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
+
+  // As soon as a scan resolves, bring the result into view — the camera stays
+  // paused on the QR otherwise and the officer has to scroll to see the data.
+  useLayoutEffect(() => {
+    if (lookup || error) resultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [lookup, error]);
 
   useEffect(() => {
     return () => {
@@ -44,15 +52,19 @@ export function QrScannerPanel({
     setError('');
     setLookup(null);
     setMessage('');
+    setLastToken(null);
+    handlingRef.current = false;
     const scanner = new Html5Qrcode(READER_ID);
     scannerRef.current = scanner;
     try {
       await scanner.start(
         { facingMode: 'environment' },
         { fps: 10, qrbox: 260 },
-        async (decodedText) => {
-          await scanner.pause(true);
-          await handleScanned(decodedText);
+        (decodedText) => {
+          if (handlingRef.current) return; // one decode per scan
+          handlingRef.current = true;
+          scanner.pause(true); // freeze immediately — safe to call from the callback
+          handleScanned(decodedText);
         },
       );
       setScanning(true);
@@ -62,7 +74,11 @@ export function QrScannerPanel({
   }
 
   async function stopScanning() {
-    try { await scannerRef.current?.stop(); } catch { /* already stopped */ }
+    try {
+      await scannerRef.current?.stop();
+      scannerRef.current?.clear();
+    } catch { /* already stopped */ }
+    scannerRef.current = null;
     setScanning(false);
   }
 
@@ -95,10 +111,14 @@ export function QrScannerPanel({
 
   function scanNext() {
     setLookup(null);
-    setLastToken(null);
     setMessage('');
     setError('');
-    scannerRef.current?.resume();
+    setLastToken(null);
+    handlingRef.current = false;
+    // The scanner is only paused (see the decode callback), so resume it
+    // rather than tearing down and re-initialising the camera.
+    if (scannerRef.current) scannerRef.current.resume();
+    else startScanning();
   }
 
   const status = lookup?.[statusField];
@@ -111,9 +131,18 @@ export function QrScannerPanel({
         {headerControls && <div style={{ marginBottom: 16 }}>{headerControls}</div>}
         {!ready && <div className="error">{notReadyMessage || 'Make a selection above to start scanning.'}</div>}
         {!scanning && <button className="primary" onClick={startScanning} disabled={!ready}>Start Camera</button>}
-        {scanning && <button className="secondary" onClick={stopScanning}>Stop Camera</button>}
-        <div id={READER_ID} style={{ maxWidth: 360, marginTop: 16 }} />
+        {scanning && !lookup && <button className="secondary" onClick={stopScanning}>Stop Camera</button>}
+        {/* Kept mounted while a result shows (scanner is only paused), just
+            collapsed so the officer sees the data, not the frozen frame. */}
+        <div
+          id={READER_ID}
+          style={lookup
+            ? { height: 0, overflow: 'hidden' }
+            : { maxWidth: 360, marginTop: scanning ? 16 : 0 }}
+        />
       </div>
+
+      <div ref={resultRef} />
 
       {error && <div className="card error">{error}</div>}
 

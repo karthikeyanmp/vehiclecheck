@@ -10,32 +10,36 @@ const STATUS_LABELS = {
 };
 
 // District boundary monitoring — separate from the Madurai event gates.
-// Tracks a vehicle leaving and returning through its home district's
-// checkpoint. Thanjavur has several exit/return points, so the officer
-// picks which one they're at; it's sent with every scan.
+// The officer works only their assigned checkpoints and picks which one
+// they're at; it's sent with every scan.
 export function DistrictScanner() {
   const { user } = useAuth();
-  const [checkpoints, setCheckpoints] = useState([]);
-  const [checkpointId, setCheckpointId] = useState(
-    user.districtCheckpointId ? String(user.districtCheckpointId) : '',
-  );
+  const [checkpoints, setCheckpoints] = useState(user.assignedCheckpoints || []);
+  const [checkpointId, setCheckpointId] = useState('');
   const [error, setError] = useState('');
 
   useEffect(() => {
-    api.get('/api/master-data/district-checkpoints').then(setCheckpoints).catch((e) => setError(e.message));
+    api.get('/api/district-scan/checkpoints')
+      .then((cps) => {
+        setCheckpoints(cps);
+        if (cps.length === 1) setCheckpointId(String(cps[0].id)); // auto-pick when there's only one
+      })
+      .catch((e) => setError(e.message));
   }, []);
 
   const selector = (
-    <>
-      <label>Checkpoint you are at</label>
+    <div style={{ fontSize: 14 }}>
+      {user.policeStationName && <div style={{ marginBottom: 8 }}>Station: <strong>{user.policeStationName}</strong></div>}
+      <label>Checkpoint you are at (your assigned points only)</label>
       <select value={checkpointId} onChange={(e) => setCheckpointId(e.target.value)}>
         <option value="" disabled>Select checkpoint…</option>
         {checkpoints.map((c) => (
-          <option key={c.id} value={c.id}>{c.name} ({c.district})</option>
+          <option key={c.id} value={c.id}>{c.name}{c.district ? ` (${c.district})` : ''}</option>
         ))}
       </select>
+      {checkpoints.length === 0 && <div className="error">No checkpoints assigned to your account — ask an admin.</div>}
       {error && <div className="error">{error}</div>}
-    </>
+    </div>
   );
 
   return (

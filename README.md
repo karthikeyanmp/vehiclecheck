@@ -41,12 +41,16 @@ return through its **home district's** border, not the event's. The point is
 the headcount — how many vehicles and people left the district for the event,
 and how many have come back (Admin → Dashboard shows this).
 
-Thanjavur has several exit/return points, so a `district_scanner` isn't
-pinned to one — the officer picks their checkpoint from a dropdown each
-shift, and it's recorded with every scan. Manage the checkpoint list in
-Admin → Master Data; extending monitoring to another district is just adding
-rows there, no code change. A few example Thanjavur checkpoints are seeded —
-rename them to the real ones.
+Thanjavur has several exit/return points. An admin assigns each
+`district_scanner` one or more checkpoints (Admin → Users); the scanner UI
+only offers those, and the server rejects a scan at any checkpoint the
+officer isn't assigned to. The officer picks which of their checkpoints
+they're at each shift (auto-selected if they only have one). Officers can
+also be tagged with their police station, shown on the scan screen.
+
+Manage the checkpoint list in Admin → Master Data; extending monitoring to
+another district is just adding rows there, no code change. A few example
+Thanjavur checkpoints are seeded — rename them to the real ones.
 
 ## First-time setup
 

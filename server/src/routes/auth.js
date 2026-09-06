@@ -12,8 +12,14 @@ authRouter.post('/login', async (req, res) => {
   }
 
   const { rows } = await query(
-    `SELECT id, username, password_hash, full_name, role, police_station_id, entry_point_id, district_checkpoint_id, active
-     FROM users WHERE username = $1`,
+    `SELECT u.id, u.username, u.password_hash, u.full_name, u.role, u.active,
+            u.police_station_id, ps.station_name AS police_station_name,
+            u.entry_point_id, ep.name AS entry_point_name,
+            u.district_checkpoint_id
+     FROM users u
+     LEFT JOIN police_stations ps ON ps.id = u.police_station_id
+     LEFT JOIN entry_points ep ON ep.id = u.entry_point_id
+     WHERE u.username = $1`,
     [username],
   );
   const user = rows[0];
@@ -31,6 +37,18 @@ authRouter.post('/login', async (req, res) => {
     return res.status(401).json(genericError);
   }
 
+  let assignedCheckpoints = [];
+  if (user.role === 'district_scanner') {
+    const { rows: cps } = await query(
+      `SELECT dc.id, dc.name, dc.district
+       FROM user_district_checkpoints udc
+       JOIN district_checkpoints dc ON dc.id = udc.district_checkpoint_id
+       WHERE udc.user_id = $1 ORDER BY dc.district, dc.name`,
+      [user.id],
+    );
+    assignedCheckpoints = cps;
+  }
+
   const token = signSessionToken(user);
   res.json({
     token,
@@ -40,8 +58,11 @@ authRouter.post('/login', async (req, res) => {
       fullName: user.full_name,
       role: user.role,
       policeStationId: user.police_station_id,
+      policeStationName: user.police_station_name,
       entryPointId: user.entry_point_id,
+      entryPointName: user.entry_point_name,
       districtCheckpointId: user.district_checkpoint_id,
+      assignedCheckpoints,
     },
   });
 });
