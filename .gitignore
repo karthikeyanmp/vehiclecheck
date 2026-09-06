@@ -6,9 +6,6 @@ node_modules/
 # Uploaded RC copies / photos — runtime data, recreated on boot
 server/uploads/
 
-# Official emblem asset — supply your own, not committed
-server/src/assets/tn-police-emblem.png
-
 # Build output (Render rebuilds it) and local test renders
 dist/
 server/sample-certificate.*

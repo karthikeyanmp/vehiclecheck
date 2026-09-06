@@ -4,7 +4,7 @@ import PDFDocument from 'pdfkit';
 import { qrTokenToPngBuffer } from './qr.js';
 
 const TAMIL_FONT = path.resolve('src/fonts/NotoSansTamil-Regular.ttf');
-const EMBLEM_PATH = path.resolve('src/assets/tn-police-emblem.png');
+const EMBLEM_PATH = path.resolve('src/assets/policelogo.jpg');
 const INK = '#0b1f4b';
 
 // Fixed for this event; make this a per-registration field if the template
@@ -55,7 +55,7 @@ export async function renderPermitPdf(reg) {
     doc.fontSize(10).text('வாகன அனுமதி எண்.', qrBoxX - 20, y, { width: qrBoxW + 40, align: 'center' });
 
     if (fs.existsSync(EMBLEM_PATH)) {
-      doc.image(EMBLEM_PATH, pageW / 2 - 32, y - 6, { width: 64 });
+      doc.image(EMBLEM_PATH, pageW / 2 - 38, y - 8, { width: 76 });
     }
 
     const qrBoxTop = y + 18;

@@ -1,5 +1,6 @@
-Drop the official Tamil Nadu Police emblem here as `tn-police-emblem.png`
-(transparent background, roughly square, ~300px). The certificate renderer
-looks for this exact filename and simply skips the emblem if it's absent —
-sourced from your own official artwork, not fetched from the internet, since
-it's a government emblem.
+`policelogo.jpg` is the Tamil Nadu Police emblem printed at the top-centre of
+the vehicle permit (see `../services/certificate.js`, `EMBLEM_PATH`).
+
+Replace it with a higher-resolution version if you have one — keep the same
+filename, or update `EMBLEM_PATH`. The renderer scales it to ~76pt wide and
+skips it gracefully if the file is missing.
