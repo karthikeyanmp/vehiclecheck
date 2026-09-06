@@ -113,7 +113,12 @@ export function QrScannerPanel({
       {lookup && (
         <div className="card">
           <div style={{ display: 'flex', gap: 20 }}>
-            <img className="scan-result-photo" src={api.fileUrl(lookup.photoUrl)} alt="Applicant" />
+            <img
+              className="scan-result-photo"
+              src={api.fileUrl(lookup.photoUrl)}
+              alt="Applicant"
+              onError={(e) => { e.currentTarget.style.visibility = 'hidden'; }}
+            />
             <div>
               <h2>{lookup.applicantName}</h2>
               <p>Vehicle: <strong>{lookup.vehicleNumber}</strong> ({lookup.vehicleType})</p>

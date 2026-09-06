@@ -66,7 +66,7 @@ scanRouter.post('/lookup', requireRole('gate_scanner'), async (req, res) => {
  */
 scanRouter.get('/photo/:id', requireRole('gate_scanner', 'district_scanner', 'registrar', 'admin'), async (req, res) => {
   const { rows } = await query('SELECT applicant_photo_path FROM registrations WHERE id = $1', [req.params.id]);
-  if (!rows[0]) return res.status(404).end();
+  if (!rows[0] || !rows[0].applicant_photo_path) return res.status(404).end();
   res.sendFile(absoluteUploadPath(rows[0].applicant_photo_path));
 });
 

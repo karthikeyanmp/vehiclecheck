@@ -73,16 +73,12 @@ export function NewRegistration() {
     e.preventDefault();
     setError('');
     setResult(null);
-    if (!photo || !rc) {
-      setError('Applicant photo and RC copy are both required.');
-      return;
-    }
     setBusy(true);
     try {
       const fd = new FormData();
       for (const [k, v] of Object.entries(form)) fd.append(k, v);
-      fd.append('applicant_photo', photo);
-      fd.append('rc_copy', rc);
+      if (photo) fd.append('applicant_photo', photo);
+      if (rc) fd.append('rc_copy', rc);
       fd.append('co_passengers', JSON.stringify(coPassengers.filter((p) => p.name)));
 
       const res = await api.postForm('/api/registrations', fd);
@@ -156,12 +152,12 @@ export function NewRegistration() {
             </select>
           </div>
           <div>
-            <label>Applicant Photo</label>
-            <input type="file" accept="image/*" onChange={(e) => setPhoto(e.target.files[0])} required />
+            <label>Applicant Photo (optional)</label>
+            <input type="file" accept="image/*" onChange={(e) => setPhoto(e.target.files[0])} />
           </div>
           <div>
-            <label>RC Copy (image or PDF)</label>
-            <input type="file" accept="image/*,application/pdf" onChange={(e) => setRc(e.target.files[0])} required />
+            <label>RC Copy (image or PDF, optional)</label>
+            <input type="file" accept="image/*,application/pdf" onChange={(e) => setRc(e.target.files[0])} />
           </div>
         </div>
 

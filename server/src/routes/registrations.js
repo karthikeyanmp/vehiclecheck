@@ -32,12 +32,8 @@ registrationsRouter.post(
   async (req, res) => {
     const b = req.body || {};
     const files = req.files || {};
-    const photo = files.applicant_photo?.[0];
+    const photo = files.applicant_photo?.[0]; // both optional
     const rc = files.rc_copy?.[0];
-
-    if (!photo || !rc) {
-      return res.status(400).json({ error: 'applicant_photo and rc_copy files are both required' });
-    }
 
     const required = ['vehicle_number', 'vehicle_type', 'applicant_name', 'applicant_mobile', 'district', 'allowed_entry_point_id'];
     for (const field of required) {
@@ -82,8 +78,8 @@ registrationsRouter.post(
             regId,
             b.vehicle_number.trim().toUpperCase(),
             b.vehicle_type,
-            `rc/${rc.filename}`,
-            `photos/${photo.filename}`,
+            rc ? `rc/${rc.filename}` : null,
+            photo ? `photos/${photo.filename}` : null,
             b.applicant_name.trim(),
             b.applicant_age || null,
             b.applicant_mobile.trim(),
@@ -111,8 +107,8 @@ registrationsRouter.post(
       res.status(201).json(registration);
     } catch (err) {
       // Clean up orphaned uploads if the DB insert failed.
-      fs.unlink(absoluteUploadPath(`rc/${rc.filename}`), () => {});
-      fs.unlink(absoluteUploadPath(`photos/${photo.filename}`), () => {});
+      if (rc) fs.unlink(absoluteUploadPath(`rc/${rc.filename}`), () => {});
+      if (photo) fs.unlink(absoluteUploadPath(`photos/${photo.filename}`), () => {});
       throw err;
     }
   },
@@ -229,6 +225,7 @@ registrationsRouter.get('/:id/file/:type', requireRole('registrar', 'admin'), as
   const { type } = req.params;
   if (!['photo', 'rc'].includes(type)) return res.status(400).json({ error: 'invalid file type' });
   const relPath = type === 'photo' ? reg.applicant_photo_path : reg.rc_copy_path;
+  if (!relPath) return res.status(404).json({ error: `no ${type} on file for this registration` });
   res.sendFile(absoluteUploadPath(relPath));
 });
 
