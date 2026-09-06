@@ -142,6 +142,8 @@ Storage) and use a paid instance + managed Postgres with backups.
 
 ## Deploying to your own server (production)
 
+> **Full step-by-step guide with explanations: [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md)**
+
 The frontend is already bundled into the backend, so a real deployment is:
 get the code on the server → build → run behind a reverse proxy with TLS.
 

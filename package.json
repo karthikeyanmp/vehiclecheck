@@ -10,6 +10,8 @@
     "build": "npm --prefix server install && npm --prefix client install --include=dev && npm --prefix client run build",
     "migrate": "npm --prefix server run migrate",
     "start": "npm --prefix server start",
+    "seed:admin": "npm --prefix server run seed:admin --",
+    "seed:demo": "npm --prefix server run seed:demo --",
     "dev:server": "npm --prefix server run dev",
     "dev:client": "npm --prefix client run dev"
   }
