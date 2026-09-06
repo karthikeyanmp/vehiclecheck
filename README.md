@@ -140,6 +140,93 @@ is deleted after ~30 days, and uploaded photos/RC files sit on ephemeral disk
 boot). For the real event, move file storage to object storage (S3/Supabase
 Storage) and use a paid instance + managed Postgres with backups.
 
+## Deploying to your own server (production)
+
+The frontend is already bundled into the backend, so a real deployment is:
+get the code on the server → build → run behind a reverse proxy with TLS.
+
+### Option A — Docker Compose (recommended)
+
+One command brings up Postgres + the app + Caddy (which gets and renews a
+Let's Encrypt certificate automatically).
+
+**Prerequisites:** Docker + the Compose plugin on the server; the domain's
+**A record pointing at the server's public IP**; ports **80 and 443**
+reachable from the internet (forward them on the router/firewall if the
+server is behind NAT).
+
+```bash
+git clone <your-repo-url> vehicle-permit && cd vehicle-permit
+cp .env.example .env          # fill in DOMAIN, DB_PASSWORD, the two secrets,
+                              # EVENT_QR_EXPIRY, BOOTSTRAP_ADMIN_*
+docker compose -f docker-compose.prod.yml up -d --build
+```
+
+That's it — migrations run on start, the admin is bootstrapped, and
+`https://<your-domain>` serves the app. Data lives in named volumes
+(`pgdata`, `uploads`).
+
+Updating later:
+```bash
+git pull
+docker compose -f docker-compose.prod.yml up -d --build
+```
+
+### Option B — Manual (Node + Postgres + Nginx)
+
+**Prerequisites:** Node 20+, PostgreSQL 14+, Nginx, and `certbot`.
+
+```bash
+# 1. Database
+sudo -u postgres createuser vehicle_permit --pwprompt
+sudo -u postgres createdb vehicle_permit -O vehicle_permit
+
+# 2. Code + build
+git clone <your-repo-url> vehicle-permit && cd vehicle-permit
+cp server/.env.example server/.env      # set DATABASE_URL, DATABASE_SSL=false,
+                                        # the two secrets, EVENT_QR_EXPIRY
+npm run build                           # installs server+client, builds the client
+npm run migrate
+npm --prefix server run seed:admin -- admin "a-real-strong-password"
+
+# 3. Run under a process manager
+sudo npm i -g pm2
+pm2 start npm --name vehicle-permit -- start   # `npm start` -> server serves API + client
+pm2 save && pm2 startup                        # auto-start on boot
+```
+
+Nginx site (`/etc/nginx/sites-available/vehicle-permit`), then
+`certbot --nginx -d permits.example.com`:
+
+```nginx
+server {
+    server_name permits.example.com;
+    client_max_body_size 25m;               # RC/photo uploads
+    location / {
+        proxy_pass http://127.0.0.1:4000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+
+### Data handling on your server
+
+- **Encrypt the disk** (or at least the volume/partition holding `uploads/`
+  and the Postgres data) — it's RC copies, photos, and phone numbers.
+- **Back up**: `pg_dump` on a cron, plus a copy of the uploads volume.
+  ```bash
+  docker compose -f docker-compose.prod.yml exec -T db pg_dump -U vehicle_permit vehicle_permit | gzip > backup-$(date +%F).sql.gz
+  ```
+- **UPS + auto-restart** (`restart: unless-stopped` / `pm2 startup`) so a
+  power blip during the event doesn't take it down for good.
+- **Purge** RC copies/photos after the agreed retention window.
+- Consider restricting access (VPN or firewall IP allowlist) if every
+  station/gate/checkpoint connects from a known network.
+- Rotate `AUTH_JWT_SECRET` / `QR_JWT_SECRET` and the admin password before
+  reusing this for another event.
+
 ## What's implemented vs. what's left
 
 **Done:** schema + migrations, JWT auth with server-enforced roles, file

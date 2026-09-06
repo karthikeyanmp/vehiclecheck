@@ -1,0 +1,10 @@
+{$DOMAIN} {
+	reverse_proxy app:4000
+
+	# RC copy + photo uploads (multer caps each file at 8 MB; two files + fields)
+	request_body {
+		max_size 25MB
+	}
+
+	encode gzip
+}

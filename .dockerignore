@@ -1,0 +1,13 @@
+**/node_modules
+**/dist
+.git
+.gitignore
+.env
+.env.*
+server/.env
+client/.env
+server/uploads/*
+*.log
+server/sample-certificate.*
+render.yaml
+README.md
