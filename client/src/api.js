@@ -42,6 +42,9 @@ export const api = {
       body: JSON.stringify(data),
     }).then(handle);
   },
+  del(path) {
+    return fetch(`${API_BASE}${path}`, { method: 'DELETE', headers: authHeaders() }).then(handle);
+  },
   postForm(path, formData) {
     return fetch(`${API_BASE}${path}`, {
       method: 'POST',

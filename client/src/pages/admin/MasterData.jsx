@@ -1,97 +1,153 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { api } from '../../api.js';
 
-export function MasterData() {
-  const [stations, setStations] = useState([]);
-  const [entryPoints, setEntryPoints] = useState([]);
-  const [districtCheckpoints, setDistrictCheckpoints] = useState([]);
-  const [newStation, setNewStation] = useState({ district: '', station_name: '' });
-  const [newEntryPoint, setNewEntryPoint] = useState({ name: '', district: 'Madurai' });
-  const [newCheckpoint, setNewCheckpoint] = useState({ name: '', district: 'Thanjavur' });
+function blankRow(fields) {
+  return Object.fromEntries(fields.map((f) => [f.key, f.default ?? '']));
+}
+
+function Section({ title, note, basePath, fields }) {
+  const [items, setItems] = useState([]);
   const [error, setError] = useState('');
+  const [editingId, setEditingId] = useState(null);
+  const [draft, setDraft] = useState({});
+  const [newRow, setNewRow] = useState(() => blankRow(fields));
 
-  function load() {
-    api.get('/api/master-data/police-stations').then(setStations).catch((e) => setError(e.message));
-    api.get('/api/master-data/entry-points').then(setEntryPoints).catch((e) => setError(e.message));
-    api.get('/api/master-data/district-checkpoints').then(setDistrictCheckpoints).catch((e) => setError(e.message));
-  }
-  useEffect(load, []);
+  const load = useCallback(() => {
+    api.get(basePath).then(setItems).catch((e) => setError(e.message));
+  }, [basePath]);
+  useEffect(load, [load]);
 
-  async function addStation(e) {
+  async function add(e) {
     e.preventDefault();
+    setError('');
     try {
-      await api.post('/api/master-data/police-stations', newStation);
-      setNewStation({ district: '', station_name: '' });
+      await api.post(basePath, newRow);
+      setNewRow(blankRow(fields));
       load();
     } catch (err) { setError(err.message); }
   }
 
-  async function addEntryPoint(e) {
-    e.preventDefault();
+  function startEdit(item) {
+    setEditingId(item.id);
+    setDraft(Object.fromEntries(fields.map((f) => [f.key, item[f.key] ?? ''])));
+  }
+
+  async function saveEdit(id) {
+    setError('');
     try {
-      await api.post('/api/master-data/entry-points', newEntryPoint);
-      setNewEntryPoint({ name: '', district: 'Madurai' });
+      await api.patch(`${basePath}/${id}`, draft);
+      setEditingId(null);
       load();
     } catch (err) { setError(err.message); }
   }
 
-  async function addCheckpoint(e) {
-    e.preventDefault();
+  async function remove(item) {
+    if (!window.confirm(`Delete "${fields.map((f) => item[f.key]).join(' / ')}"?`)) return;
+    setError('');
     try {
-      await api.post('/api/master-data/district-checkpoints', newCheckpoint);
-      setNewCheckpoint({ name: '', district: newCheckpoint.district });
+      await api.del(`${basePath}/${item.id}`);
       load();
     } catch (err) { setError(err.message); }
   }
 
   return (
+    <div className="card">
+      <h2>{title}</h2>
+      {note && <p style={{ color: '#666', fontSize: 13, marginTop: -8 }}>{note}</p>}
+      {error && <div className="error">{error}</div>}
+      <table>
+        <thead>
+          <tr>
+            {fields.map((f) => <th key={f.key}>{f.label}</th>)}
+            <th style={{ width: 150 }} />
+          </tr>
+        </thead>
+        <tbody>
+          {items.map((item) => (
+            <tr key={item.id}>
+              {fields.map((f) => (
+                <td key={f.key}>
+                  {editingId === item.id ? (
+                    <input
+                      value={draft[f.key] ?? ''}
+                      onChange={(e) => setDraft((d) => ({ ...d, [f.key]: e.target.value }))}
+                    />
+                  ) : item[f.key]}
+                </td>
+              ))}
+              <td>
+                {editingId === item.id ? (
+                  <>
+                    <button className="secondary" onClick={() => saveEdit(item.id)}>Save</button>{' '}
+                    <button className="secondary" onClick={() => setEditingId(null)}>Cancel</button>
+                  </>
+                ) : (
+                  <>
+                    <button className="secondary" onClick={() => startEdit(item)}>Edit</button>{' '}
+                    <button className="secondary" onClick={() => remove(item)}>Delete</button>
+                  </>
+                )}
+              </td>
+            </tr>
+          ))}
+          {items.length === 0 && (
+            <tr><td colSpan={fields.length + 1} style={{ color: '#888' }}>None yet.</td></tr>
+          )}
+        </tbody>
+      </table>
+      <form onSubmit={add} style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
+        {fields.map((f) => (
+          <input
+            key={f.key}
+            placeholder={f.label}
+            value={newRow[f.key]}
+            required={f.required !== false}
+            onChange={(e) => setNewRow((r) => ({ ...r, [f.key]: e.target.value }))}
+          />
+        ))}
+        <button className="secondary" type="submit">Add</button>
+      </form>
+    </div>
+  );
+}
+
+export function MasterData() {
+  return (
     <div className="page">
       <h1>Master Data</h1>
-      {error && <div className="error">{error}</div>}
 
-      <div className="card">
-        <h2>Police Stations</h2>
-        <table>
-          <thead><tr><th>District</th><th>Station</th></tr></thead>
-          <tbody>{stations.map((s) => <tr key={s.id}><td>{s.district}</td><td>{s.station_name}</td></tr>)}</tbody>
-        </table>
-        <form onSubmit={addStation} style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-          <input placeholder="District" value={newStation.district} onChange={(e) => setNewStation((s) => ({ ...s, district: e.target.value }))} required />
-          <input placeholder="Station name" value={newStation.station_name} onChange={(e) => setNewStation((s) => ({ ...s, station_name: e.target.value }))} required />
-          <button className="secondary" type="submit">Add</button>
-        </form>
-      </div>
+      <Section
+        title="Police Stations"
+        basePath="/api/master-data/police-stations"
+        fields={[
+          { key: 'district', label: 'District' },
+          { key: 'station_name', label: 'Station Name' },
+        ]}
+      />
 
-      <div className="card">
-        <h2>Entry Points (Madurai gates)</h2>
-        <table>
-          <thead><tr><th>Name</th><th>District</th></tr></thead>
-          <tbody>{entryPoints.map((ep) => <tr key={ep.id}><td>{ep.name}</td><td>{ep.district}</td></tr>)}</tbody>
-        </table>
-        <form onSubmit={addEntryPoint} style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-          <input placeholder="Entry point name" value={newEntryPoint.name} onChange={(e) => setNewEntryPoint((s) => ({ ...s, name: e.target.value }))} required />
-          <input placeholder="District" value={newEntryPoint.district} onChange={(e) => setNewEntryPoint((s) => ({ ...s, district: e.target.value }))} />
-          <button className="secondary" type="submit">Add</button>
-        </form>
-      </div>
+      <Section
+        title="Entry Points (Madurai gates)"
+        basePath="/api/master-data/entry-points"
+        fields={[
+          { key: 'name', label: 'Name' },
+          { key: 'district', label: 'District', default: 'Madurai' },
+        ]}
+      />
 
-      <div className="card">
-        <h2>District Checkpoints (home-district departure/return)</h2>
-        <p style={{ color: '#666', fontSize: 13, marginTop: -8 }}>
-          Only Thanjavur is active for now — adding a checkpoint for another district here is enough
-          to enable it, no other setup needed. Create a matching "District Checkpoint Officer" account
-          under Users once a checkpoint exists.
-        </p>
-        <table>
-          <thead><tr><th>Name</th><th>District</th></tr></thead>
-          <tbody>{districtCheckpoints.map((dc) => <tr key={dc.id}><td>{dc.name}</td><td>{dc.district}</td></tr>)}</tbody>
-        </table>
-        <form onSubmit={addCheckpoint} style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-          <input placeholder="Checkpoint name" value={newCheckpoint.name} onChange={(e) => setNewCheckpoint((s) => ({ ...s, name: e.target.value }))} required />
-          <input placeholder="District" value={newCheckpoint.district} onChange={(e) => setNewCheckpoint((s) => ({ ...s, district: e.target.value }))} required />
-          <button className="secondary" type="submit">Add</button>
-        </form>
-      </div>
+      <Section
+        title="District Checkpoints (home-district departure/return)"
+        note="Only Thanjavur is active for now — adding a checkpoint for another district here is enough to enable it. Create a matching District Checkpoint Officer account under Users once a checkpoint exists."
+        basePath="/api/master-data/district-checkpoints"
+        fields={[
+          { key: 'name', label: 'Checkpoint Name' },
+          { key: 'district', label: 'District', default: 'Thanjavur' },
+        ]}
+      />
+
+      <p style={{ color: '#888', fontSize: 12 }}>
+        An entry that&rsquo;s already used by a registration, scan log, or officer account can&rsquo;t be
+        deleted — edit it instead, or remove what references it first.
+      </p>
     </div>
   );
 }
