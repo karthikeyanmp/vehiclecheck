@@ -146,11 +146,11 @@ export function NewRegistration() {
             </div>
           )}
           <div>
-            <label>Allowed Entry Point</label>
+            <label>Allowed Entry / Exit Check Post</label>
             <select value={form.allowed_entry_point_id} onChange={(e) => setField('allowed_entry_point_id', e.target.value)} required>
               <option value="" disabled>Select…</option>
               {entryPoints.map((ep) => (
-                <option key={ep.id} value={ep.id}>{ep.name} ({ep.district})</option>
+                <option key={ep.id} value={ep.id}>{ep.name}</option>
               ))}
             </select>
           </div>

@@ -246,12 +246,7 @@ registrationsRouter.get('/:id/certificate.pdf', requireRole('registrar', 'admin'
   if (!reg) return res.status(404).json({ error: 'not found' });
   if (!assertStationAccess(req, res, reg)) return;
 
-  const { rows: entryPoints } = await query('SELECT name FROM entry_points ORDER BY id');
-  const pdf = await renderPermitPdf({
-    ...reg,
-    station_name: reg.station_name,
-    all_entry_points: entryPoints.map((e) => e.name),
-  });
+  const pdf = await renderPermitPdf(reg);
 
   res.setHeader('Content-Type', 'application/pdf');
   res.setHeader('Content-Disposition', `inline; filename="permit-${reg.permit_number}.pdf"`);

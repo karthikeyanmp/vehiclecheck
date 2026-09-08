@@ -12,17 +12,17 @@ const INK = '#0b1f4b';
 const EVENT_TITLE_TA = 'இமானுவேல் சேகரன் நினைவு நாள் : 11.09.2026';
 
 /**
- * Renders the TN Police vehicle permit as a landscape PDF, matching the
- * paper sample: emblem + title bar, event banner, then a label/value field
- * block (entry-route list beside the signature block, as in the sample),
- * with the QR code filling the "வாகன அனுமதி எண்" box in place of a
- * hand-written permit number.
+ * Renders the TN Police vehicle permit as a landscape A4 PDF, split down the
+ * middle: the left half carries the permit details (applicant, station, the
+ * one allowed entry/exit route for this vehicle), the right half is a large
+ * QR code with the permit number and signature block beneath it.
  *
- * All vertical positions are computed from what was actually drawn above
- * them (nothing is placed at a fixed absolute Y), so the card border and
- * footer always land after the real content instead of overlapping it.
+ * Left-side vertical positions flow from `doc.y` after each block (nothing is
+ * placed at a fixed absolute Y), so the content can't overrun; the right side
+ * is laid out from the top for the QR and pinned to the bottom for the
+ * signature.
  *
- * @param {object} reg - joined registration + station + entry-point row
+ * @param {object} reg - joined registration row; needs entry_point_name and station_name
  * @returns {Promise<Buffer>}
  */
 export async function renderPermitPdf(reg) {
@@ -39,106 +39,89 @@ export async function renderPermitPdf(reg) {
     doc.font('Tamil').fillColor(INK);
 
     const pageW = doc.page.width;
-    const margin = 40;
+    const pageH = doc.page.height;
+    const margin = 28;
     const cardX = margin;
+    const cardY = margin;
     const cardW = pageW - margin * 2;
-    const cardTop = 36;
-    const innerX = cardX + 26;
-    const innerW = cardW - 52;
+    const cardH = pageH - margin * 2;
+    const pad = 22;
 
-    let y = cardTop + 20;
+    // Card border + centre divider (left 58% details, right 42% QR).
+    doc.rect(cardX, cardY, cardW, cardH).lineWidth(2).stroke(INK);
+    const dividerX = cardX + Math.round(cardW * 0.58);
+    doc.moveTo(dividerX, cardY).lineTo(dividerX, cardY + cardH).lineWidth(1).stroke(INK);
 
-    // --- Top row: vehicle no. (left) / emblem (center) / permit-no. box with QR (right) ---
-    const qrBoxW = 100;
-    const qrBoxX = cardX + cardW - 26 - qrBoxW;
-    doc.fontSize(11).text(`வாகன எண். : ${reg.vehicle_number}`, innerX, y);
-    doc.fontSize(10).text('வாகன அனுமதி எண்.', qrBoxX - 20, y, { width: qrBoxW + 40, align: 'center' });
+    // ---------------- LEFT: details ----------------
+    const lx = cardX + pad;
+    const lw = dividerX - cardX - pad * 2;
+    let y = cardY + pad;
 
     if (fs.existsSync(EMBLEM_PATH)) {
-      doc.image(EMBLEM_PATH, pageW / 2 - 38, y - 8, { width: 76 });
+      doc.image(EMBLEM_PATH, lx, y, { width: 52 });
     }
+    doc.fontSize(18).text('தமிழ்நாடு காவல்துறை', lx + 64, y + 2, { width: lw - 64 });
+    doc.fontSize(12).text('வாகன அனுமதி சீட்டு', lx + 64, doc.y + 4, { width: lw - 64 });
+    y = Math.max(y + 52, doc.y) + 10;
 
-    const qrBoxTop = y + 18;
-    doc.rect(qrBoxX, qrBoxTop, qrBoxW, qrBoxW).lineWidth(1).stroke(INK);
-    doc.image(qrPng, qrBoxX + 5, qrBoxTop + 5, { width: qrBoxW - 10 });
+    doc.moveTo(lx, y).lineTo(lx + lw, y).lineWidth(1).stroke(INK);
+    y += 12;
 
-    y = qrBoxTop + qrBoxW + 18;
+    doc.fontSize(13).text(EVENT_TITLE_TA, lx, y, { width: lw, align: 'center' });
+    y = doc.y + 10;
 
-    // --- Title ---
-    doc.fontSize(24).text('தமிழ்நாடு காவல்துறை', cardX, y, { width: cardW, align: 'center' });
-    y += 32;
-    doc.fontSize(14).text('வாகன அனுமதி சீட்டு', cardX, y, { width: cardW, align: 'center' });
-    y += 24;
-
-    doc.moveTo(cardX, y).lineTo(cardX + cardW, y).lineWidth(1.2).stroke(INK);
+    doc.moveTo(lx, y).lineTo(lx + lw, y).lineWidth(1).stroke(INK);
     y += 14;
 
-    // --- Event banner ---
-    doc.fontSize(18).text(EVENT_TITLE_TA, cardX, y, { width: cardW, align: 'center' });
-    y += 30;
+    // Label / value rows. Both sides are measured so a wrapped value can't
+    // collide with the next row.
+    const labelW = 128;
+    const valueX = lx + labelW + 12;
+    const valueW = lx + lw - valueX;
 
-    doc.moveTo(cardX, y).lineTo(cardX + cardW, y).lineWidth(1.2).stroke(INK);
-    y += 18;
-
-    // --- Field block ---
-    const labelW = 190;
-    const colonX = innerX + labelW;
-    const valueX = colonX + 20;
-    const valueW = innerX + innerW - valueX;
-    const rowGap = 30;
-
-    function field(label, value, { gap = rowGap, valueWidth = valueW } = {}) {
+    function field(label, value, { gap = 12 } = {}) {
       const startY = y;
-      doc.fontSize(12).text(label, innerX, y, { width: labelW });
-      doc.text(':', colonX, y);
-      doc.text(value || '', valueX, y, { width: valueWidth });
-      y = startY + gap;
-      return startY;
+      doc.fontSize(11).text(label, lx, startY, { width: labelW });
+      const labelBottom = doc.y;
+      doc.text(':', lx + labelW, startY);
+      doc.text(value || '—', valueX, startY, { width: valueW });
+      y = Math.max(labelBottom, doc.y) + gap;
     }
 
+    field('வாகன எண்', reg.vehicle_number);
     field('பெயர்', reg.applicant_name);
     field('கைபேசி எண்', reg.applicant_mobile);
     field('மாவட்டம்', reg.district);
-    field('உட்கோட்டம் மற்றும்\nகாவல் நிலையம்', reg.station_name, { gap: 42 });
-
-    // Entry route (left) beside the signature block (right), as in the
-    // sample — computed side by side so neither one's height can overrun
-    // and collide with the other.
-    const sigColW = 230;
-    const sigColX = innerX + innerW - sigColW;
-    const routeColW = sigColX - valueX - 16;
-
-    const rowStartY = y;
-    doc.fontSize(12).text('நுழையும் வழி', innerX, y, { width: labelW });
-    doc.text(':', colonX, y);
-    const entryPoints = reg.all_entry_points || [];
-    const entryLines = entryPoints
-      .map((name, i) => `${i + 1}. ${name}${i < entryPoints.length - 1 ? ',' : '.'}`)
-      .join('\n');
-    doc.text(entryLines, valueX, y, { width: routeColW });
-    const routeBottom = doc.y;
-
-    doc.fontSize(11)
-      .text('காவல் துறை உட்கோட்ட அதிகாரி,', sigColX, rowStartY, { width: sigColW, align: 'center' })
-      .text('(கையொப்பம்)', sigColX, doc.y + 6, { width: sigColW, align: 'center' })
-      .text('அலுவலக முத்திரை', sigColX, doc.y + 6, { width: sigColW, align: 'center' });
-    const sigBottom = doc.y;
-
-    y = Math.max(routeBottom, sigBottom) + 12;
-
+    field('உட்கோட்டம் / காவல் நிலையம்', reg.station_name);
+    field('பயணிகள் எண்ணிக்கை', String(reg.num_persons_traveling ?? 1));
+    field('நுழையும் வழி', reg.entry_point_name);
     field('வெளியேறும் வழி', 'அதே வழியில்');
 
-    // --- Footer: what the applicant should carry, printed below the card ---
-    doc.fontSize(9).fillColor('#555').text(
-      `அனுமதி எண்: ${reg.permit_number}`,
-      cardX,
-      y + 14,
-      { width: cardW, align: 'center' },
-    );
+    // ---------------- RIGHT: QR + permit number + signature ----------------
+    const rx = dividerX + pad;
+    const rw = cardX + cardW - pad - rx;
+    let ry = cardY + pad + 4;
 
-    // --- Card border, drawn last now that the real content height is known ---
-    const cardBottom = y + 8;
-    doc.rect(cardX, cardTop, cardW, cardBottom - cardTop).lineWidth(2).stroke(INK);
+    doc.fontSize(12).text('வாகன அனுமதி எண்', rx, ry, { width: rw, align: 'center' });
+    ry = doc.y + 10;
+
+    const qrSize = Math.min(rw, 250);
+    const qrX = rx + (rw - qrSize) / 2;
+    doc.rect(qrX, ry, qrSize, qrSize).lineWidth(1).stroke(INK);
+    doc.image(qrPng, qrX + 6, ry + 6, { width: qrSize - 12 });
+    ry += qrSize + 14;
+
+    doc.fontSize(13).text(reg.permit_number, rx, ry, { width: rw, align: 'center' });
+    ry = doc.y + 4;
+    doc.fontSize(9).fillColor('#555')
+      .text('இந்த QR குறியீட்டை நுழைவு வாயிலில் காட்டவும்', rx, ry, { width: rw, align: 'center' });
+    doc.fillColor(INK);
+
+    // Signature block pinned near the bottom of the card.
+    const sigTop = cardY + cardH - pad - 46;
+    doc.fontSize(10)
+      .text('காவல் துறை உட்கோட்ட அதிகாரி', rx, sigTop, { width: rw, align: 'center' })
+      .text('(கையொப்பம் / அலுவலக முத்திரை)', rx, doc.y + 6, { width: rw, align: 'center' });
 
     doc.end();
   });
