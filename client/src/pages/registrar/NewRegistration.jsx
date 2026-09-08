@@ -85,6 +85,10 @@ export function NewRegistration() {
     e.preventDefault();
     setError('');
     setResult(null);
+    if (!photo || !rc || !vehiclePhoto) {
+      setError('Applicant photo, RC photo and vehicle photo are all required.');
+      return;
+    }
     setBusy(true);
     try {
       const fd = new FormData();
@@ -166,19 +170,19 @@ export function NewRegistration() {
             </select>
           </div>
           <div>
-            <label>Applicant Photo (optional)</label>
-            <input type="file" accept="image/*" capture="environment" onChange={(e) => { clearStaleBanners(); setPhoto(e.target.files[0] || null); }} />
-            <small style={{ color: '#888' }}>On a phone/tablet this opens the camera.</small>
+            <label>Applicant Photo</label>
+            <input type="file" accept="image/*" capture="environment" required onChange={(e) => { clearStaleBanners(); setPhoto(e.target.files[0] || null); }} />
+            <small style={{ color: '#888' }}>Required. On a phone/tablet this opens the camera.</small>
           </div>
           <div>
-            <label>RC Photo (optional)</label>
-            <input type="file" accept="image/*,application/pdf" capture="environment" onChange={(e) => { clearStaleBanners(); setRc(e.target.files[0] || null); }} />
-            <small style={{ color: '#888' }}>Photograph the RC, or attach an image/PDF on desktop.</small>
+            <label>RC Photo</label>
+            <input type="file" accept="image/*,application/pdf" capture="environment" required onChange={(e) => { clearStaleBanners(); setRc(e.target.files[0] || null); }} />
+            <small style={{ color: '#888' }}>Required. Photograph the RC, or attach an image/PDF on desktop.</small>
           </div>
           <div>
-            <label>Vehicle Photo (optional)</label>
-            <input type="file" accept="image/*" capture="environment" onChange={(e) => { clearStaleBanners(); setVehiclePhoto(e.target.files[0] || null); }} />
-            <small style={{ color: '#888' }}>On a phone/tablet this opens the camera.</small>
+            <label>Vehicle Photo</label>
+            <input type="file" accept="image/*" capture="environment" required onChange={(e) => { clearStaleBanners(); setVehiclePhoto(e.target.files[0] || null); }} />
+            <small style={{ color: '#888' }}>Required. On a phone/tablet this opens the camera.</small>
           </div>
         </div>
 

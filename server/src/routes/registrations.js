@@ -32,19 +32,33 @@ registrationsRouter.post(
   async (req, res) => {
     const b = req.body || {};
     const files = req.files || {};
-    const photo = files.applicant_photo?.[0]; // all optional
+    const photo = files.applicant_photo?.[0];
     const rc = files.rc_copy?.[0];
     const vehiclePhoto = files.vehicle_photo?.[0];
 
+    // Remove whatever did get uploaded when we reject the request before the
+    // DB insert, so a failed submit doesn't leave orphaned files on disk.
+    const discardUploads = () => {
+      for (const f of [photo && `photos/${photo.filename}`, rc && `rc/${rc.filename}`, vehiclePhoto && `vehicle/${vehiclePhoto.filename}`]) {
+        if (f) fs.unlink(absoluteUploadPath(f), () => {});
+      }
+    };
+    const reject = (status, error) => { discardUploads(); return res.status(status).json({ error }); };
+
     const required = ['vehicle_number', 'vehicle_type', 'applicant_name', 'applicant_mobile', 'district', 'allowed_entry_point_id'];
     for (const field of required) {
-      if (!b[field]) return res.status(400).json({ error: `${field} is required` });
+      if (!b[field]) return reject(400, `${field} is required`);
     }
+
+    // The applicant photo, RC and vehicle photo are all mandatory.
+    if (!photo) return reject(400, 'Applicant photo is required');
+    if (!rc) return reject(400, 'RC photo is required');
+    if (!vehiclePhoto) return reject(400, 'Vehicle photo is required');
 
     // A registrar can only ever create records for their own station.
     const policeStationId = req.user.role === 'registrar' ? req.user.policeStationId : b.police_station_id;
     if (!policeStationId) {
-      return res.status(400).json({ error: 'police_station_id is required' });
+      return reject(400, 'police_station_id is required');
     }
 
     let coPassengers = [];
@@ -52,7 +66,7 @@ registrationsRouter.post(
       try {
         coPassengers = JSON.parse(b.co_passengers);
       } catch {
-        return res.status(400).json({ error: 'co_passengers must be a JSON array' });
+        return reject(400, 'co_passengers must be a JSON array');
       }
     }
 
@@ -79,9 +93,9 @@ registrationsRouter.post(
             regId,
             b.vehicle_number.trim().toUpperCase(),
             b.vehicle_type,
-            rc ? `rc/${rc.filename}` : null,
-            photo ? `photos/${photo.filename}` : null,
-            vehiclePhoto ? `vehicle/${vehiclePhoto.filename}` : null,
+            `rc/${rc.filename}`,
+            `photos/${photo.filename}`,
+            `vehicle/${vehiclePhoto.filename}`,
             b.applicant_name.trim().toUpperCase(),
             b.applicant_age || null,
             b.applicant_mobile.trim(),
@@ -108,10 +122,7 @@ registrationsRouter.post(
 
       res.status(201).json(registration);
     } catch (err) {
-      // Clean up orphaned uploads if the DB insert failed.
-      if (rc) fs.unlink(absoluteUploadPath(`rc/${rc.filename}`), () => {});
-      if (photo) fs.unlink(absoluteUploadPath(`photos/${photo.filename}`), () => {});
-      if (vehiclePhoto) fs.unlink(absoluteUploadPath(`vehicle/${vehiclePhoto.filename}`), () => {});
+      discardUploads(); // don't leave orphaned files if the DB insert failed
       throw err;
     }
   },
