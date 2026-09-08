@@ -128,26 +128,17 @@ export function MasterData() {
       />
 
       <Section
-        title="Entry Points (Madurai gates)"
+        title="Check Posts"
+        note="The district border check posts. Each vehicle's permit is tied to one of these for exit and return; a Check Post Officer account is assigned one or more of them under Users."
         basePath="/api/master-data/entry-points"
         fields={[
-          { key: 'name', label: 'Name' },
-          { key: 'district', label: 'District', default: 'Madurai' },
-        ]}
-      />
-
-      <Section
-        title="District Checkpoints (home-district departure/return)"
-        note="Only Thanjavur is active for now — adding a checkpoint for another district here is enough to enable it. Create a matching District Checkpoint Officer account under Users once a checkpoint exists."
-        basePath="/api/master-data/district-checkpoints"
-        fields={[
-          { key: 'name', label: 'Checkpoint Name' },
+          { key: 'name', label: 'Check Post Name' },
           { key: 'district', label: 'District', default: 'Thanjavur' },
         ]}
       />
 
       <p style={{ color: '#888', fontSize: 12 }}>
-        An entry that&rsquo;s already used by a registration, scan log, or officer account can&rsquo;t be
+        A check post or station already used by a registration, scan log, or officer account can&rsquo;t be
         deleted — edit it instead, or remove what references it first.
       </p>
     </div>

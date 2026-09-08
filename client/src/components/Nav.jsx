@@ -6,8 +6,7 @@ const LINKS_BY_ROLE = {
     { to: '/registrar/new', label: 'New Registration' },
     { to: '/registrar', label: 'My Registrations' },
   ],
-  gate_scanner: [{ to: '/gate', label: 'Scan Gate' }],
-  district_scanner: [{ to: '/district-checkpoint', label: 'District Checkpoint' }],
+  district_scanner: [{ to: '/checkpoint', label: 'Check Post Scan' }],
   admin: [
     { to: '/admin', label: 'Dashboard' },
     { to: '/admin/registrations', label: 'Registrations' },

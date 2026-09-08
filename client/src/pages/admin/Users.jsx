@@ -3,21 +3,20 @@ import { api, byLabel } from '../../api.js';
 
 const emptyForm = {
   username: '', password: '', full_name: '', role: 'registrar',
-  police_station_id: '', entry_point_id: '', district_checkpoint_ids: [],
+  police_station_id: '', check_post_ids: [],
 };
 
 const ROLE_LABEL = {
   admin: 'Super Admin',
   registrar: 'Registering Officer',
-  gate_scanner: 'Gate Personnel',
-  district_scanner: 'District Checkpoint Officer',
+  gate_scanner: 'Gate Personnel', // legacy — no longer created
+  district_scanner: 'Check Post Officer',
 };
 
 export function Users() {
   const [users, setUsers] = useState([]);
   const [stations, setStations] = useState([]);
-  const [entryPoints, setEntryPoints] = useState([]);
-  const [districtCheckpoints, setDistrictCheckpoints] = useState([]);
+  const [checkPosts, setCheckPosts] = useState([]);
   const [form, setForm] = useState(emptyForm);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -32,17 +31,16 @@ export function Users() {
   useEffect(load, []);
   useEffect(() => {
     api.get('/api/master-data/police-stations').then((d) => setStations(byLabel(d, (x) => x.station_name))).catch(() => {});
-    api.get('/api/master-data/entry-points').then((d) => setEntryPoints(byLabel(d))).catch(() => {});
-    api.get('/api/master-data/district-checkpoints').then((d) => setDistrictCheckpoints(byLabel(d))).catch(() => {});
+    api.get('/api/master-data/entry-points').then((d) => setCheckPosts(byLabel(d))).catch(() => {});
   }, []);
 
   function setField(k, v) { setForm((f) => ({ ...f, [k]: v })); }
 
-  function toggleCreateCheckpoint(id) {
+  function toggleCreateCheckPost(id) {
     setForm((f) => {
-      const set = new Set(f.district_checkpoint_ids.map(String));
+      const set = new Set(f.check_post_ids.map(String));
       set.has(String(id)) ? set.delete(String(id)) : set.add(String(id));
-      return { ...f, district_checkpoint_ids: [...set] };
+      return { ...f, check_post_ids: [...set] };
     });
   }
 
@@ -54,7 +52,6 @@ export function Users() {
       await api.post('/api/users', {
         ...form,
         police_station_id: form.police_station_id || undefined,
-        entry_point_id: form.entry_point_id || undefined,
       });
       setForm(emptyForm);
       load();
@@ -76,19 +73,18 @@ export function Users() {
     setDraft({
       full_name: u.full_name,
       police_station_id: u.police_station_id ? String(u.police_station_id) : '',
-      entry_point_id: u.entry_point_id ? String(u.entry_point_id) : '',
-      district_checkpoint_ids: (u.checkpoints || []).map((c) => String(c.id)),
+      check_post_ids: (u.checkpoints || []).map((c) => String(c.id)),
       password: '',
     });
   }
 
   function setDraftField(k, v) { setDraft((d) => ({ ...d, [k]: v })); }
 
-  function toggleDraftCheckpoint(id) {
+  function toggleDraftCheckPost(id) {
     setDraft((d) => {
-      const set = new Set(d.district_checkpoint_ids.map(String));
+      const set = new Set(d.check_post_ids.map(String));
       set.has(String(id)) ? set.delete(String(id)) : set.add(String(id));
-      return { ...d, district_checkpoint_ids: [...set] };
+      return { ...d, check_post_ids: [...set] };
     });
   }
 
@@ -98,20 +94,15 @@ export function Users() {
       setError('A registering officer must have a police station.');
       return;
     }
-    if (u.role === 'gate_scanner' && !draft.entry_point_id) {
-      setError('A gate officer must have an assigned entry/exit point.');
-      return;
-    }
-    if (u.role === 'district_scanner' && draft.district_checkpoint_ids.length === 0) {
-      setError('A district officer needs at least one assigned checkpoint.');
+    if (u.role === 'district_scanner' && draft.check_post_ids.length === 0) {
+      setError('A check post officer needs at least one assigned check post.');
       return;
     }
     const payload = {
       full_name: draft.full_name,
       police_station_id: draft.police_station_id || null,
     };
-    if (u.role === 'gate_scanner') payload.entry_point_id = draft.entry_point_id || null;
-    if (u.role === 'district_scanner') payload.district_checkpoint_ids = draft.district_checkpoint_ids;
+    if (u.role === 'district_scanner') payload.check_post_ids = draft.check_post_ids;
     if (draft.password) payload.password = draft.password;
     try {
       await api.patch(`/api/users/${u.id}`, payload);
@@ -135,8 +126,7 @@ export function Users() {
             <label>Role</label>
             <select value={form.role} onChange={(e) => setField('role', e.target.value)}>
               <option value="registrar">Registering Officer</option>
-              <option value="gate_scanner">Gate Personnel</option>
-              <option value="district_scanner">District Checkpoint Officer</option>
+              <option value="district_scanner">Check Post Officer</option>
               <option value="admin">Super Admin</option>
             </select>
           </div>
@@ -151,7 +141,7 @@ export function Users() {
             </div>
           )}
 
-          {(form.role === 'gate_scanner' || form.role === 'district_scanner') && (
+          {form.role === 'district_scanner' && (
             <div>
               <label>Police Station (shown to the officer — optional)</label>
               <select value={form.police_station_id} onChange={(e) => setField('police_station_id', e.target.value)}>
@@ -161,29 +151,19 @@ export function Users() {
             </div>
           )}
 
-          {form.role === 'gate_scanner' && (
-            <div>
-              <label>Assigned Entry / Exit Point</label>
-              <select value={form.entry_point_id} onChange={(e) => setField('entry_point_id', e.target.value)} required>
-                <option value="" disabled>Select…</option>
-                {entryPoints.map((ep) => <option key={ep.id} value={ep.id}>{ep.name}</option>)}
-              </select>
-            </div>
-          )}
-
           {form.role === 'district_scanner' && (
             <div style={{ gridColumn: '1 / -1' }}>
-              <label>Assigned Checkpoints (the officer can only work these)</label>
+              <label>Assigned Check Posts (the officer can only work these)</label>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginTop: 4 }}>
-                {districtCheckpoints.map((dc) => (
-                  <label key={dc.id} style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 400, margin: 0 }}>
+                {checkPosts.map((cp) => (
+                  <label key={cp.id} style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 400, margin: 0 }}>
                     <input type="checkbox" style={{ width: 'auto' }}
-                      checked={form.district_checkpoint_ids.map(String).includes(String(dc.id))}
-                      onChange={() => toggleCreateCheckpoint(dc.id)} />
-                    {dc.name} ({dc.district})
+                      checked={form.check_post_ids.map(String).includes(String(cp.id))}
+                      onChange={() => toggleCreateCheckPost(cp.id)} />
+                    {cp.name}
                   </label>
                 ))}
-                {districtCheckpoints.length === 0 && <span style={{ color: '#888' }}>Add checkpoints in Master Data first.</span>}
+                {checkPosts.length === 0 && <span style={{ color: '#888' }}>Add check posts in Master Data first.</span>}
               </div>
             </div>
           )}
@@ -235,16 +215,6 @@ export function Users() {
                           </select>
                         </div>
 
-                        {u.role === 'gate_scanner' && (
-                          <div>
-                            <label>Assigned Entry / Exit Point</label>
-                            <select value={draft.entry_point_id} onChange={(e) => setDraftField('entry_point_id', e.target.value)}>
-                              <option value="" disabled>Select…</option>
-                              {entryPoints.map((ep) => <option key={ep.id} value={ep.id}>{ep.name}</option>)}
-                            </select>
-                          </div>
-                        )}
-
                         <div>
                           <label>Reset password (leave blank to keep)</label>
                           <input type="password" value={draft.password} onChange={(e) => setDraftField('password', e.target.value)} placeholder="min 10 chars" />
@@ -252,14 +222,14 @@ export function Users() {
 
                         {u.role === 'district_scanner' && (
                           <div style={{ gridColumn: '1 / -1' }}>
-                            <label>Assigned Checkpoints</label>
+                            <label>Assigned Check Posts</label>
                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginTop: 4 }}>
-                              {districtCheckpoints.map((dc) => (
-                                <label key={dc.id} style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 400, margin: 0 }}>
+                              {checkPosts.map((cp) => (
+                                <label key={cp.id} style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 400, margin: 0 }}>
                                   <input type="checkbox" style={{ width: 'auto' }}
-                                    checked={draft.district_checkpoint_ids.map(String).includes(String(dc.id))}
-                                    onChange={() => toggleDraftCheckpoint(dc.id)} />
-                                  {dc.name} ({dc.district})
+                                    checked={draft.check_post_ids.map(String).includes(String(cp.id))}
+                                    onChange={() => toggleDraftCheckPost(cp.id)} />
+                                  {cp.name}
                                 </label>
                               ))}
                             </div>

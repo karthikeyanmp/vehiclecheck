@@ -40,10 +40,10 @@ authRouter.post('/login', async (req, res) => {
   let assignedCheckpoints = [];
   if (user.role === 'district_scanner') {
     const { rows: cps } = await query(
-      `SELECT dc.id, dc.name, dc.district
-       FROM user_district_checkpoints udc
-       JOIN district_checkpoints dc ON dc.id = udc.district_checkpoint_id
-       WHERE udc.user_id = $1 ORDER BY dc.district, dc.name`,
+      `SELECT ep.id, ep.name, ep.district
+       FROM user_check_posts ucp
+       JOIN entry_points ep ON ep.id = ucp.entry_point_id
+       WHERE ucp.user_id = $1 ORDER BY ep.name`,
       [user.id],
     );
     assignedCheckpoints = cps;

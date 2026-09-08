@@ -165,7 +165,7 @@ export function NewRegistration() {
             </div>
           )}
           <div>
-            <label>Allowed Entry / Exit Check Post</label>
+            <label>Assigned Check Post (for exit &amp; return)</label>
             <select value={form.allowed_entry_point_id} onChange={(e) => setField('allowed_entry_point_id', e.target.value)} required>
               <option value="" disabled>Select…</option>
               {entryPoints.map((ep) => (

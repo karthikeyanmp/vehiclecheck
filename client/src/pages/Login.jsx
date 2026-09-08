@@ -5,8 +5,7 @@ import { useAuth } from '../auth/AuthContext.jsx';
 const HOME_BY_ROLE = {
   admin: '/admin',
   registrar: '/registrar',
-  gate_scanner: '/gate',
-  district_scanner: '/district-checkpoint',
+  district_scanner: '/checkpoint',
 };
 
 export function Login() {

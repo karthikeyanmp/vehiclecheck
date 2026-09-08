@@ -5,16 +5,15 @@ import { verifyQrToken } from '../services/qr.js';
 import { scanFileUrls } from './scan.js';
 
 /**
- * District entry/exit monitoring — a separate checkpoint type from the
- * Madurai event gates in scan.js. Tracks a vehicle leaving and returning
- * through its *home* district's border (Thanjavur only, for now). Same
- * QR/permit as the event gates; it just tracks its own status
- * (`district_status`) on the registration row, independent of the event's
- * `current_status`.
+ * Check-post monitoring: a vehicle leaving Thanjavur district through its
+ * designated border check post and returning through the same one. The QR /
+ * permit is shared with everything else; this tracks its own status
+ * (`district_status`: not_departed -> departed -> returned) independent of the
+ * legacy event `current_status`.
  *
- * A district_scanner isn't pinned to one checkpoint — the officer picks
- * which of their district's checkpoints they're at, and it's sent as
- * `checkpointId` with every lookup/verify.
+ * A check-post officer (role `district_scanner`) is assigned one or more check
+ * posts and picks which one they're at; it's sent as `checkpointId` with every
+ * lookup / verify.
  */
 export const districtScanRouter = Router();
 districtScanRouter.use(requireAuth);
@@ -27,44 +26,49 @@ const NEXT_ACTION = {
 
 async function loadRegistration(regId) {
   const { rows } = await query(
-    `SELECT id, applicant_name, vehicle_number, vehicle_type, district,
-            num_persons_traveling, district_status,
-            applicant_photo_path, rc_copy_path, vehicle_photo_path
-     FROM registrations WHERE id = $1`,
+    `SELECT r.id, r.applicant_name, r.vehicle_number, r.vehicle_type, r.district,
+            r.num_persons_traveling, r.district_status, r.allowed_entry_point_id,
+            r.applicant_photo_path, r.rc_copy_path, r.vehicle_photo_path,
+            ep.name AS allowed_check_post_name
+     FROM registrations r
+     JOIN entry_points ep ON ep.id = r.allowed_entry_point_id
+     WHERE r.id = $1`,
     [regId],
   );
   return rows[0];
 }
 
-async function assignedCheckpoints(userId) {
+async function assignedCheckPosts(userId) {
   const { rows } = await query(
-    `SELECT dc.id, dc.name, dc.district
-     FROM user_district_checkpoints udc
-     JOIN district_checkpoints dc ON dc.id = udc.district_checkpoint_id
-     WHERE udc.user_id = $1 ORDER BY dc.district, dc.name`,
+    `SELECT ep.id, ep.name, ep.district
+     FROM user_check_posts ucp
+     JOIN entry_points ep ON ep.id = ucp.entry_point_id
+     WHERE ucp.user_id = $1 ORDER BY ep.name`,
     [userId],
   );
   return rows;
 }
 
-function districtMismatch(reg, checkpoint) {
-  return (reg.district || '').trim().toLowerCase() !== (checkpoint?.district || '').trim().toLowerCase();
+// Flagged, not blocked: the vehicle's permit names a different check post than
+// the one being scanned at. Same judgement-call pattern as the old gate check.
+function checkPostMismatch(reg, checkPost) {
+  return String(reg.allowed_entry_point_id) !== String(checkPost?.id);
 }
 
-// The list of checkpoints THIS officer is allowed to work — the scanner UI
-// only offers these.
+// The check posts THIS officer is allowed to work — the scanner UI only offers
+// these.
 districtScanRouter.get('/checkpoints', requireRole('district_scanner'), async (req, res) => {
-  res.json(await assignedCheckpoints(req.user.id));
+  res.json(await assignedCheckPosts(req.user.id));
 });
 
 districtScanRouter.post('/lookup', requireRole('district_scanner'), async (req, res) => {
   const { token, checkpointId } = req.body || {};
   if (!token) return res.status(400).json({ error: 'token is required' });
 
-  const allowed = await assignedCheckpoints(req.user.id);
-  const checkpoint = allowed.find((c) => String(c.id) === String(checkpointId));
-  if (!checkpoint) {
-    return res.status(403).json({ error: 'That checkpoint is not one of your assigned checkpoints' });
+  const allowed = await assignedCheckPosts(req.user.id);
+  const checkPost = allowed.find((c) => String(c.id) === String(checkpointId));
+  if (!checkPost) {
+    return res.status(403).json({ error: 'That check post is not one of your assigned check posts' });
   }
 
   let regId;
@@ -85,10 +89,8 @@ districtScanRouter.post('/lookup', requireRole('district_scanner'), async (req, 
     numPersonsTraveling: reg.num_persons_traveling,
     ...scanFileUrls(reg),
     districtStatus: reg.district_status,
-    registrationDistrict: reg.district,
-    checkpointDistrict: checkpoint?.district,
-    // Flagged, not blocked — same judgement-call pattern as the gate mismatch.
-    districtMismatch: districtMismatch(reg, checkpoint),
+    allowedCheckPostName: reg.allowed_check_post_name,
+    checkPostMismatch: checkPostMismatch(reg, checkPost),
     nextAction: NEXT_ACTION[reg.district_status],
   });
 });
@@ -99,10 +101,10 @@ districtScanRouter.post('/verify', requireRole('district_scanner'), async (req, 
     return res.status(400).json({ error: 'token and a valid action are required' });
   }
 
-  const allowed = await assignedCheckpoints(req.user.id);
-  const checkpoint = allowed.find((c) => String(c.id) === String(checkpointId));
-  if (!checkpoint) {
-    return res.status(403).json({ error: 'That checkpoint is not one of your assigned checkpoints' });
+  const allowed = await assignedCheckPosts(req.user.id);
+  const checkPost = allowed.find((c) => String(c.id) === String(checkpointId));
+  if (!checkPost) {
+    return res.status(403).json({ error: 'That check post is not one of your assigned check posts' });
   }
 
   let regId;
@@ -115,7 +117,7 @@ districtScanRouter.post('/verify', requireRole('district_scanner'), async (req, 
   const result = await withTransaction(async (client) => {
     // Row lock — same double-scan protection as the event gate's verify.
     const { rows } = await client.query(
-      'SELECT id, district, district_status FROM registrations WHERE id = $1 FOR UPDATE',
+      'SELECT id, allowed_entry_point_id, district_status FROM registrations WHERE id = $1 FOR UPDATE',
       [regId],
     );
     const reg = rows[0];
@@ -125,22 +127,22 @@ districtScanRouter.post('/verify', requireRole('district_scanner'), async (req, 
       return {
         status: 409,
         body: {
-          error: `Cannot mark "${action}" — current district status is "${reg.district_status}"`,
+          error: `Cannot mark "${action}" — current status is "${reg.district_status}"`,
           districtStatus: reg.district_status,
         },
       };
     }
 
-    const mismatch = districtMismatch(reg, checkpoint);
+    const mismatch = checkPostMismatch(reg, checkPost);
 
     await client.query('UPDATE registrations SET district_status = $1 WHERE id = $2', [action, regId]);
     await client.query(
-      `INSERT INTO district_scan_log (registration_id, action, scanned_by, district_checkpoint_id, district_mismatch)
+      `INSERT INTO district_scan_log (registration_id, action, scanned_by, entry_point_id, district_mismatch)
        VALUES ($1, $2, $3, $4, $5)`,
-      [regId, action, req.user.id, checkpoint.id, mismatch],
+      [regId, action, req.user.id, checkPost.id, mismatch],
     );
 
-    return { status: 200, body: { registrationId: regId, districtStatus: action, districtMismatch: mismatch } };
+    return { status: 200, body: { registrationId: regId, districtStatus: action, checkPostMismatch: mismatch } };
   });
 
   res.status(result.status).json(result.body);

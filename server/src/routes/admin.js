@@ -8,8 +8,8 @@ adminRouter.use(requireAuth, requireRole('admin'));
 // District departure/return monitoring only. "left" = ever crossed out
 // (departed + returned); "still out" = departed and not yet returned;
 // "not left" = not_departed. persons_* sum num_persons_traveling.
-// Scoped to registrations whose home district has a checkpoint (Thanjavur).
-const MONITORED = "district IN (SELECT DISTINCT district FROM district_checkpoints)";
+// Scoped to registrations whose home district has a check post (Thanjavur).
+const MONITORED = "district IN (SELECT DISTINCT district FROM entry_points)";
 
 adminRouter.get('/summary', async (_req, res) => {
   const [districtTotals, byStation, byCheckpoint] = await Promise.all([
@@ -38,14 +38,14 @@ adminRouter.get('/summary', async (_req, res) => {
       WHERE r.${MONITORED}
       GROUP BY ps.station_name, ps.district ORDER BY ps.district, ps.station_name
     `),
-    // By the checkpoint a vehicle first departed through, and whether it's back.
+    // By the check post a vehicle first departed through, and whether it's back.
     query(`
       WITH departures AS (
-        SELECT DISTINCT ON (registration_id) registration_id, district_checkpoint_id
-        FROM district_scan_log WHERE action = 'departed'
+        SELECT DISTINCT ON (registration_id) registration_id, entry_point_id
+        FROM district_scan_log WHERE action = 'departed' AND entry_point_id IS NOT NULL
         ORDER BY registration_id, scanned_at
       )
-      SELECT dc.name AS checkpoint, dc.district,
+      SELECT ep.name AS checkpoint, ep.district,
         count(*)                                                       AS left_via,
         count(*) FILTER (WHERE r.district_status = 'returned')         AS returned,
         count(*) FILTER (WHERE r.district_status = 'departed')         AS still_out,
@@ -53,8 +53,8 @@ adminRouter.get('/summary', async (_req, res) => {
         coalesce(sum(r.num_persons_traveling) FILTER (WHERE r.district_status = 'returned'), 0)      AS persons_returned
       FROM departures d
       JOIN registrations r ON r.id = d.registration_id
-      JOIN district_checkpoints dc ON dc.id = d.district_checkpoint_id
-      GROUP BY dc.name, dc.district ORDER BY dc.district, dc.name
+      JOIN entry_points ep ON ep.id = d.entry_point_id
+      GROUP BY ep.name, ep.district ORDER BY ep.name
     `),
   ]);
 
@@ -92,11 +92,13 @@ adminRouter.get('/district-scan-log', async (req, res) => {
   const { rows } = await query(
     `SELECT dsl.id, dsl.action, dsl.scanned_at, dsl.district_mismatch,
             r.vehicle_number, r.applicant_name, r.permit_number,
-            u.username AS scanned_by, dc.name AS checkpoint
+            u.username AS scanned_by,
+            coalesce(ep.name, dc.name) AS checkpoint
      FROM district_scan_log dsl
      JOIN registrations r ON r.id = dsl.registration_id
      JOIN users u ON u.id = dsl.scanned_by
-     JOIN district_checkpoints dc ON dc.id = dsl.district_checkpoint_id
+     LEFT JOIN entry_points ep ON ep.id = dsl.entry_point_id
+     LEFT JOIN district_checkpoints dc ON dc.id = dsl.district_checkpoint_id
      ${where}
      ORDER BY dsl.scanned_at DESC
      LIMIT 500`,

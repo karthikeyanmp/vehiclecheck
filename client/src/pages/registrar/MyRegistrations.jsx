@@ -2,9 +2,9 @@ import { useEffect, useState } from 'react';
 import { api } from '../../api.js';
 
 const STATUS_LABEL = {
-  not_arrived: 'Not Arrived',
-  verified_entered: 'Inside',
-  verified_exited: 'Exited',
+  not_departed: 'Not Departed',
+  departed: 'Departed',
+  returned: 'Returned',
 };
 
 export function MyRegistrations() {
@@ -31,7 +31,7 @@ export function MyRegistrations() {
           <thead>
             <tr>
               <th>Permit #</th><th>Vehicle</th><th>Applicant</th><th>Mobile</th>
-              <th>Entry Point</th><th>Status</th><th></th>
+              <th>Check Post</th><th>Status</th><th></th>
             </tr>
           </thead>
           <tbody>
@@ -42,7 +42,7 @@ export function MyRegistrations() {
                 <td>{r.applicant_name}</td>
                 <td>{r.applicant_mobile}</td>
                 <td>{r.allowed_entry_point_name}</td>
-                <td><span className={`status-pill status-${r.current_status}`}>{STATUS_LABEL[r.current_status]}</span></td>
+                <td><span className={`status-pill status-${r.district_status}`}>{STATUS_LABEL[r.district_status] || r.district_status}</span></td>
                 <td>
                   <a href={api.fileUrl(`/api/registrations/${r.id}/certificate.pdf`)} target="_blank" rel="noreferrer">Certificate</a>
                 </td>

@@ -23,7 +23,7 @@ export function Dashboard() {
       <h1>District Departure / Return Monitoring</h1>
       <p style={{ color: '#666', fontSize: 13, marginTop: -8 }}>
         Vehicles and people that left the district for the event, and how many are back.
-        Tracked for districts with a checkpoint (Thanjavur).
+        Tracked for districts with a check post (Thanjavur).
       </p>
 
       <div className="summary-grid">
@@ -71,14 +71,14 @@ export function Dashboard() {
       </div>
 
       <div className="card">
-        <h2>By District Checkpoint</h2>
+        <h2>By Check Post</h2>
         <p style={{ color: '#666', fontSize: 13, marginTop: -8 }}>
-          Grouped by the checkpoint a vehicle first departed through.
+          Grouped by the check post a vehicle first departed through.
         </p>
         <table>
           <thead>
             <tr>
-              <th>Checkpoint</th><th>District</th>
+              <th>Check Post</th><th>District</th>
               <th>Left via here</th><th>Returned</th><th>Not returned</th>
               <th>Persons left</th><th>Persons returned</th>
             </tr>

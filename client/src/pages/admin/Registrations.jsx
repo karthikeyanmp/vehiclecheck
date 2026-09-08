@@ -70,7 +70,7 @@ export function Registrations() {
           <thead>
             <tr>
               <th>Permit #</th><th>Vehicle</th><th>Applicant</th><th>Mobile</th>
-              <th>District</th><th>Persons</th><th>Entry Point</th>
+              <th>District</th><th>Persons</th><th>Check Post</th>
               <th>District status</th><th></th>
             </tr>
           </thead>
@@ -99,7 +99,7 @@ export function Registrations() {
                     </>
                   ) : (
                     <>
-                      <button className="secondary" onClick={() => startEdit(r)}>Edit gate</button>{' '}
+                      <button className="secondary" onClick={() => startEdit(r)}>Edit check post</button>{' '}
                       <a href={api.fileUrl(`/api/registrations/${r.id}/certificate.pdf`)} target="_blank" rel="noreferrer">Certificate</a>{' '}
                       <button className="danger" onClick={() => remove(r)}>Delete</button>
                     </>

@@ -83,7 +83,7 @@ masterDataRouter.post('/entry-points', requireRole('admin'), async (req, res) =>
   const { name, district } = req.body || {};
   if (!name) return res.status(400).json({ error: 'name is required' });
   const { rows } = await query(
-    `INSERT INTO entry_points (name, district) VALUES ($1, COALESCE($2, 'Madurai'))
+    `INSERT INTO entry_points (name, district) VALUES ($1, COALESCE($2, 'Thanjavur'))
      ON CONFLICT (name, district) DO UPDATE SET name = EXCLUDED.name
      RETURNING id, name, district`,
     [name, district],
