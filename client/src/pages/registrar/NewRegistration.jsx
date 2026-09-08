@@ -62,11 +62,22 @@ export function NewRegistration() {
     }
   }, [isAdmin]);
 
+  // Once the officer starts entering the next registration, the previous
+  // "Registered — Permit #… / Print" banner is stale and sits right above the
+  // Register button — clear it (and any old error) on the first edit so it
+  // can't be mistaken for this record's result.
+  function clearStaleBanners() {
+    setResult((r) => (r ? null : r));
+    setError((e) => (e ? '' : e));
+  }
+
   function setField(name, value) {
+    clearStaleBanners();
     setForm((f) => ({ ...f, [name]: value }));
   }
 
   function updatePassenger(i, field, value) {
+    clearStaleBanners();
     setCoPassengers((list) => list.map((p, idx) => (idx === i ? { ...p, [field]: value } : p)));
   }
 
@@ -156,17 +167,17 @@ export function NewRegistration() {
           </div>
           <div>
             <label>Applicant Photo (optional)</label>
-            <input type="file" accept="image/*" capture="environment" onChange={(e) => setPhoto(e.target.files[0] || null)} />
+            <input type="file" accept="image/*" capture="environment" onChange={(e) => { clearStaleBanners(); setPhoto(e.target.files[0] || null); }} />
             <small style={{ color: '#888' }}>On a phone/tablet this opens the camera.</small>
           </div>
           <div>
             <label>RC Photo (optional)</label>
-            <input type="file" accept="image/*,application/pdf" capture="environment" onChange={(e) => setRc(e.target.files[0] || null)} />
+            <input type="file" accept="image/*,application/pdf" capture="environment" onChange={(e) => { clearStaleBanners(); setRc(e.target.files[0] || null); }} />
             <small style={{ color: '#888' }}>Photograph the RC, or attach an image/PDF on desktop.</small>
           </div>
           <div>
             <label>Vehicle Photo (optional)</label>
-            <input type="file" accept="image/*" capture="environment" onChange={(e) => setVehiclePhoto(e.target.files[0] || null)} />
+            <input type="file" accept="image/*" capture="environment" onChange={(e) => { clearStaleBanners(); setVehiclePhoto(e.target.files[0] || null); }} />
             <small style={{ color: '#888' }}>On a phone/tablet this opens the camera.</small>
           </div>
         </div>
@@ -180,18 +191,21 @@ export function NewRegistration() {
             <button type="button" className="secondary" onClick={() => setCoPassengers((l) => l.filter((_, idx) => idx !== i))}>Remove</button>
           </div>
         ))}
-        <button type="button" className="secondary" onClick={() => setCoPassengers((l) => [...l, { ...emptyPassenger }])}>+ Add co-passenger</button>
+        <button type="button" className="secondary" onClick={() => { clearStaleBanners(); setCoPassengers((l) => [...l, { ...emptyPassenger }]); }}>+ Add co-passenger</button>
 
         {error && <div className="error">{error}</div>}
         {result && (
           <div className="success" style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-            <span>Registered — Permit #{result.permitNumber}.</span>
+            <span>Registered — Permit #{result.permitNumber}. Start typing the next vehicle to clear this.</span>
             <button type="button" className="primary" style={{ marginTop: 0 }} onClick={() => printCertificate(result.id)}>
               Print Certificate
             </button>
             <a href={api.fileUrl(`/api/registrations/${result.id}/certificate.pdf`)} target="_blank" rel="noreferrer">
               Open PDF
             </a>
+            <button type="button" className="secondary" style={{ marginTop: 0 }} onClick={() => setResult(null)}>
+              Dismiss
+            </button>
           </div>
         )}
         <div>
