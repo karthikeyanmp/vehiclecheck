@@ -94,8 +94,10 @@ export async function renderPermitPdf(reg) {
     field('மாவட்டம்', reg.district);
     field('உட்கோட்டம் / காவல் நிலையம்', reg.station_name);
     field('பயணிகள் எண்ணிக்கை', String(reg.num_persons_traveling ?? 1));
-    field('நுழையும் வழி', reg.entry_point_name);
-    field('வெளியேறும் வழி', 'அதே வழியில்');
+    // The vehicle LEAVES Thanjavur district through this check post and must
+    // RETURN through the same one.
+    field('வெளியேறும் சோதனைச் சாவடி', reg.entry_point_name);
+    field('திரும்பி வரும் வழி', 'அதே சோதனைச் சாவடி வழியாக');
 
     // ---------------- RIGHT: QR + permit number + signature ----------------
     const rx = dividerX + pad;
@@ -114,7 +116,7 @@ export async function renderPermitPdf(reg) {
     doc.fontSize(13).text(reg.permit_number, rx, ry, { width: rw, align: 'center' });
     ry = doc.y + 4;
     doc.fontSize(9).fillColor('#555')
-      .text('இந்த QR குறியீட்டை நுழைவு வாயிலில் காட்டவும்', rx, ry, { width: rw, align: 'center' });
+      .text('இந்த QR குறியீட்டை சோதனைச் சாவடியில் காட்டவும்', rx, ry, { width: rw, align: 'center' });
     doc.fillColor(INK);
 
     // Signature block pinned near the bottom of the card.
