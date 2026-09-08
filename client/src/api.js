@@ -63,3 +63,14 @@ export const api = {
 };
 
 export { API_BASE };
+
+/**
+ * Returns a copy of `list` sorted ascending by the string `key(item)` returns,
+ * using locale-aware, case-insensitive, numeric-aware comparison. Used to keep
+ * every dropdown in a predictable A–Z order regardless of server order.
+ */
+export function byLabel(list, key = (x) => x.name) {
+  return [...(list || [])].sort((a, b) =>
+    String(key(a) ?? '').localeCompare(String(key(b) ?? ''), undefined, { numeric: true, sensitivity: 'base' }),
+  );
+}

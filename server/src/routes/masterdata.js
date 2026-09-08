@@ -49,7 +49,7 @@ function deleteRoute(table) {
 
 masterDataRouter.get('/police-stations', async (_req, res) => {
   const { rows } = await query(
-    'SELECT id, district, station_name FROM police_stations ORDER BY district, station_name',
+    'SELECT id, district, station_name FROM police_stations ORDER BY station_name ASC, district ASC',
   );
   res.json(rows);
 });
@@ -74,7 +74,7 @@ masterDataRouter.delete('/police-stations/:id', requireRole('admin'), deleteRout
 
 masterDataRouter.get('/entry-points', async (_req, res) => {
   const { rows } = await query(
-    'SELECT id, name, district FROM entry_points ORDER BY district, name',
+    'SELECT id, name, district FROM entry_points ORDER BY name ASC, district ASC',
   );
   res.json(rows);
 });
@@ -100,7 +100,7 @@ masterDataRouter.delete('/entry-points/:id', requireRole('admin'), deleteRoute('
 // here plus a district_scanner account tied to it, no code change needed).
 masterDataRouter.get('/district-checkpoints', async (_req, res) => {
   const { rows } = await query(
-    'SELECT id, name, district FROM district_checkpoints ORDER BY district, name',
+    'SELECT id, name, district FROM district_checkpoints ORDER BY name ASC, district ASC',
   );
   res.json(rows);
 });

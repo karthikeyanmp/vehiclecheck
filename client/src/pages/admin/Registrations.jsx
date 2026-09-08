@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { api } from '../../api.js';
+import { api, byLabel } from '../../api.js';
 
 export function Registrations() {
   const [rows, setRows] = useState([]);
@@ -20,7 +20,7 @@ export function Registrations() {
 
   useEffect(load, [search, districtStatus]);
   useEffect(() => {
-    api.get('/api/master-data/entry-points').then(setEntryPoints).catch(() => {});
+    api.get('/api/master-data/entry-points').then((d) => setEntryPoints(byLabel(d))).catch(() => {});
   }, []);
 
   function startEdit(row) {

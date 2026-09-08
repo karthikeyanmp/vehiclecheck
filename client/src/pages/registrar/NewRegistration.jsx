@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { api } from '../../api.js';
+import { api, byLabel } from '../../api.js';
 import { useAuth } from '../../auth/AuthContext.jsx';
 
 const emptyPassenger = { name: '', age: '', gender: '' };
@@ -56,9 +56,13 @@ export function NewRegistration() {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    api.get('/api/master-data/entry-points').then(setEntryPoints).catch((e) => setError(e.message));
+    api.get('/api/master-data/entry-points')
+      .then((d) => setEntryPoints(byLabel(d, (x) => x.name)))
+      .catch((e) => setError(e.message));
     if (isAdmin) {
-      api.get('/api/master-data/police-stations').then(setStations).catch((e) => setError(e.message));
+      api.get('/api/master-data/police-stations')
+        .then((d) => setStations(byLabel(d, (x) => x.station_name)))
+        .catch((e) => setError(e.message));
     }
   }, [isAdmin]);
 

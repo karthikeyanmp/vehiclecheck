@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useState } from 'react';
-import { api } from '../../api.js';
+import { api, byLabel } from '../../api.js';
 
 const emptyForm = {
   username: '', password: '', full_name: '', role: 'registrar',
@@ -31,9 +31,9 @@ export function Users() {
 
   useEffect(load, []);
   useEffect(() => {
-    api.get('/api/master-data/police-stations').then(setStations).catch(() => {});
-    api.get('/api/master-data/entry-points').then(setEntryPoints).catch(() => {});
-    api.get('/api/master-data/district-checkpoints').then(setDistrictCheckpoints).catch(() => {});
+    api.get('/api/master-data/police-stations').then((d) => setStations(byLabel(d, (x) => x.station_name))).catch(() => {});
+    api.get('/api/master-data/entry-points').then((d) => setEntryPoints(byLabel(d))).catch(() => {});
+    api.get('/api/master-data/district-checkpoints').then((d) => setDistrictCheckpoints(byLabel(d))).catch(() => {});
   }, []);
 
   function setField(k, v) { setForm((f) => ({ ...f, [k]: v })); }

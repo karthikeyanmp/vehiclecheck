@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { api } from '../../api.js';
+import { api, byLabel } from '../../api.js';
 
 function blankRow(fields) {
   return Object.fromEntries(fields.map((f) => [f.key, f.default ?? '']));
@@ -12,9 +12,11 @@ function Section({ title, note, basePath, fields }) {
   const [draft, setDraft] = useState({});
   const [newRow, setNewRow] = useState(() => blankRow(fields));
 
+  // Sort each list by its name-ish column (falls back to the first field).
+  const sortKey = (fields.find((f) => f.key === 'name' || f.key === 'station_name') || fields[0]).key;
   const load = useCallback(() => {
-    api.get(basePath).then(setItems).catch((e) => setError(e.message));
-  }, [basePath]);
+    api.get(basePath).then((d) => setItems(byLabel(d, (x) => x[sortKey]))).catch((e) => setError(e.message));
+  }, [basePath, sortKey]);
   useEffect(load, [load]);
 
   async function add(e) {

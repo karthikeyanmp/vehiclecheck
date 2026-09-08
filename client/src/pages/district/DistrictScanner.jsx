@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { QrScannerPanel } from '../../components/QrScannerPanel.jsx';
-import { api } from '../../api.js';
+import { api, byLabel } from '../../api.js';
 import { useAuth } from '../../auth/AuthContext.jsx';
 
 const STATUS_LABELS = {
@@ -14,14 +14,14 @@ const STATUS_LABELS = {
 // they're at; it's sent with every scan.
 export function DistrictScanner() {
   const { user } = useAuth();
-  const [checkpoints, setCheckpoints] = useState(user.assignedCheckpoints || []);
+  const [checkpoints, setCheckpoints] = useState(byLabel(user.assignedCheckpoints || []));
   const [checkpointId, setCheckpointId] = useState('');
   const [error, setError] = useState('');
 
   useEffect(() => {
     api.get('/api/district-scan/checkpoints')
       .then((cps) => {
-        setCheckpoints(cps);
+        setCheckpoints(byLabel(cps));
         if (cps.length === 1) setCheckpointId(String(cps[0].id)); // auto-pick when there's only one
       })
       .catch((e) => setError(e.message));
