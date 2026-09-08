@@ -7,10 +7,12 @@ function sum(rows, key) {
 
 export function Dashboard() {
   const [summary, setSummary] = useState(null);
+  const [staff, setStaff] = useState([]);
   const [error, setError] = useState('');
 
   useEffect(() => {
     api.get('/api/admin/summary').then(setSummary).catch((e) => setError(e.message));
+    api.get('/api/admin/users-report').then(setStaff).catch(() => {});
   }, []);
 
   if (error) return <div className="page"><div className="error">{error}</div></div>;
@@ -94,6 +96,37 @@ export function Dashboard() {
             {byCheckpoint.length === 0 && (
               <tr><td colSpan={7} style={{ color: '#888' }}>No departures scanned yet.</td></tr>
             )}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="card">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', flexWrap: 'wrap', gap: 8 }}>
+          <h2 style={{ marginBottom: 0 }}>Staff Directory</h2>
+          <a className="secondary" style={{ textDecoration: 'none' }} href={api.fileUrl('/api/admin/users-report.csv')}>
+            Download CSV
+          </a>
+        </div>
+        <p style={{ color: '#666', fontSize: 13 }}>Every account, its role, police station, and assigned check posts.</p>
+        <table>
+          <thead>
+            <tr>
+              <th>Name</th><th>Username</th><th>Role</th>
+              <th>Police Station</th><th>Assigned Check Posts</th><th>Active</th>
+            </tr>
+          </thead>
+          <tbody>
+            {staff.map((u) => (
+              <tr key={u.username}>
+                <td>{u.full_name}</td>
+                <td>{u.username}</td>
+                <td>{u.role_label}</td>
+                <td>{u.police_station || '—'}</td>
+                <td>{u.check_posts || '—'}</td>
+                <td>{u.active ? 'Yes' : 'No'}</td>
+              </tr>
+            ))}
+            {staff.length === 0 && <tr><td colSpan={6} style={{ color: '#888' }}>No user accounts.</td></tr>}
           </tbody>
         </table>
       </div>

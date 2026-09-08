@@ -127,6 +127,59 @@ function csvEscape(value) {
   return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 
+function toCsv(rows, fallbackColumns) {
+  const columns = Object.keys(rows[0] || fallbackColumns);
+  const lines = [columns.join(',')];
+  for (const row of rows) lines.push(columns.map((c) => csvEscape(row[c])).join(','));
+  return lines.join('\n');
+}
+
+const ROLE_LABEL = {
+  admin: 'Super Admin',
+  registrar: 'Registering Officer',
+  gate_scanner: 'Gate Personnel',
+  district_scanner: 'Check Post Officer',
+};
+
+const STAFF_REPORT_SQL = `
+  SELECT u.username, u.full_name, u.role,
+         coalesce(ps.station_name, '') AS police_station,
+         coalesce((
+           SELECT string_agg(ep.name, '; ' ORDER BY ep.name)
+           FROM user_check_posts ucp
+           JOIN entry_points ep ON ep.id = ucp.entry_point_id
+           WHERE ucp.user_id = u.id
+         ), '') AS check_posts,
+         u.active
+  FROM users u
+  LEFT JOIN police_stations ps ON ps.id = u.police_station_id
+  ORDER BY u.role, u.username
+`;
+
+/** Staff directory: every account with its role, station and assigned check posts. */
+adminRouter.get('/users-report', async (_req, res) => {
+  const { rows } = await query(STAFF_REPORT_SQL);
+  res.json(rows.map((r) => ({ ...r, role_label: ROLE_LABEL[r.role] || r.role })));
+});
+
+adminRouter.get('/users-report.csv', async (_req, res) => {
+  const { rows } = await query(STAFF_REPORT_SQL);
+  const csv = toCsv(
+    rows.map((r) => ({
+      username: r.username,
+      full_name: r.full_name,
+      role: ROLE_LABEL[r.role] || r.role,
+      police_station: r.police_station,
+      check_posts: r.check_posts,
+      active: r.active ? 'yes' : 'no',
+    })),
+    { username: '', full_name: '', role: '', police_station: '', check_posts: '', active: '' },
+  );
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+  res.setHeader('Content-Disposition', 'attachment; filename="users-report.csv"');
+  res.send(csv);
+});
+
 adminRouter.get('/export.csv', async (_req, res) => {
   const { rows } = await query(`
     SELECT r.permit_number, r.vehicle_number, r.vehicle_type, r.applicant_name,

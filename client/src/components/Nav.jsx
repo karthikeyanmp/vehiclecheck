@@ -1,5 +1,6 @@
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext.jsx';
+import { roleLabel } from '../roles.js';
 
 const LINKS_BY_ROLE = {
   registrar: [
@@ -35,7 +36,10 @@ export function Nav() {
         ))}
       </div>
       <div className="nav-user">
-        <span>{user.fullName} ({user.role})</span>
+        <span>
+          {user.fullName} · {roleLabel(user.role)}
+          {user.policeStationName && <> · {user.policeStationName}</>}
+        </span>
         <button onClick={() => { logout(); navigate('/login'); }}>Log out</button>
       </div>
     </nav>

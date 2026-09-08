@@ -120,6 +120,11 @@ export function NewRegistration() {
   return (
     <div className="page">
       <h1>New Registration</h1>
+      {user.policeStationName && (
+        <p style={{ marginTop: -8, color: 'var(--muted)' }}>
+          Registering for station: <strong>{user.policeStationName}</strong>
+        </p>
+      )}
       <form className="card" onSubmit={onSubmit}>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
           <div>

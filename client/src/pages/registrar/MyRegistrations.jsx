@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api } from '../../api.js';
+import { useAuth } from '../../auth/AuthContext.jsx';
 
 const STATUS_LABEL = {
   not_departed: 'Not Departed',
@@ -8,6 +9,7 @@ const STATUS_LABEL = {
 };
 
 export function MyRegistrations() {
+  const { user } = useAuth();
   const [rows, setRows] = useState([]);
   const [search, setSearch] = useState('');
   const [error, setError] = useState('');
@@ -22,6 +24,11 @@ export function MyRegistrations() {
   return (
     <div className="page">
       <h1>My Station's Registrations</h1>
+      {user.policeStationName && (
+        <p style={{ marginTop: -8, color: 'var(--muted)' }}>
+          Station: <strong>{user.policeStationName}</strong>
+        </p>
+      )}
       <div className="toolbar">
         <input style={{ maxWidth: 280 }} placeholder="Search vehicle no. / name / mobile" value={search} onChange={(e) => setSearch(e.target.value)} />
       </div>

@@ -1,16 +1,10 @@
 import { Fragment, useEffect, useState } from 'react';
 import { api, byLabel } from '../../api.js';
+import { ROLE_LABEL } from '../../roles.js';
 
 const emptyForm = {
   username: '', password: '', full_name: '', role: 'registrar',
   police_station_id: '', check_post_ids: [],
-};
-
-const ROLE_LABEL = {
-  admin: 'Super Admin',
-  registrar: 'Registering Officer',
-  gate_scanner: 'Gate Personnel', // legacy — no longer created
-  district_scanner: 'Check Post Officer',
 };
 
 export function Users() {
