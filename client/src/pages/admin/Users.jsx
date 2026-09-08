@@ -19,6 +19,7 @@ export function Users() {
   const [checkPosts, setCheckPosts] = useState([]);
   const [form, setForm] = useState(emptyForm);
   const [error, setError] = useState('');
+  const [deleteError, setDeleteError] = useState('');
   const [busy, setBusy] = useState(false);
 
   const [editId, setEditId] = useState(null);
@@ -65,6 +66,22 @@ export function Users() {
   async function toggleActive(u) {
     await api.patch(`/api/users/${u.id}`, { active: !u.active }).catch((e) => setError(e.message));
     load();
+  }
+
+  async function removeUser(u) {
+    setDeleteError('');
+    if (!window.confirm(
+      `Delete the account "${u.username}" (${u.full_name})?\n\n`
+      + 'This permanently removes the account. It cannot be undone. '
+      + 'Disable it instead if you only want to block sign-in.',
+    )) return;
+    try {
+      await api.del(`/api/users/${u.id}`);
+      if (editId === u.id) { setEditId(null); setDraft(null); }
+      load();
+    } catch (err) {
+      setDeleteError(err.message);
+    }
   }
 
   function startEdit(u) {
@@ -175,6 +192,7 @@ export function Users() {
       <div className="card">
         <h2>Existing accounts</h2>
         {error && editId && <div className="error">{error}</div>}
+        {deleteError && <div className="error">{deleteError}</div>}
         <table>
           <thead><tr><th>Username</th><th>Name</th><th>Role</th><th>Station</th><th>Assigned to</th><th>Active</th><th /></tr></thead>
           <tbody>
@@ -194,7 +212,8 @@ export function Users() {
                     <button className="secondary" onClick={() => (editId === u.id ? setEditId(null) : startEdit(u))}>
                       {editId === u.id ? 'Close' : 'Edit'}
                     </button>{' '}
-                    <button className="secondary" onClick={() => toggleActive(u)}>{u.active ? 'Disable' : 'Enable'}</button>
+                    <button className="secondary" onClick={() => toggleActive(u)}>{u.active ? 'Disable' : 'Enable'}</button>{' '}
+                    <button className="danger" onClick={() => removeUser(u)}>Delete</button>
                   </td>
                 </tr>
 

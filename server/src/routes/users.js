@@ -118,3 +118,52 @@ usersRouter.patch('/:id', async (req, res) => {
   if (notFound) return res.status(404).json({ error: 'user not found' });
   res.json({ ok: true });
 });
+
+/**
+ * Hard-delete a user account. Meant for clearing out test/mis-role accounts
+ * before go-live. Their check-post assignments go with them (cascade) and any
+ * scan-log rows they created are removed too, since those are test scans by a
+ * test account. Blocked if the account registered vehicles or has admin edit
+ * history — reassign/delete those first, or just disable the account.
+ */
+usersRouter.delete('/:id', async (req, res) => {
+  const id = Number(req.params.id);
+  if (id === req.user.id) {
+    return res.status(400).json({ error: 'You cannot delete the account you are signed in as.' });
+  }
+
+  const { rows: targetRows } = await query('SELECT id, role FROM users WHERE id = $1', [id]);
+  const target = targetRows[0];
+  if (!target) return res.status(404).json({ error: 'user not found' });
+
+  if (target.role === 'admin') {
+    const { rows: adminCount } = await query(
+      "SELECT count(*)::int AS n FROM users WHERE role = 'admin' AND active AND id <> $1", [id],
+    );
+    if (adminCount[0].n === 0) {
+      return res.status(400).json({ error: 'This is the last active admin account — it cannot be deleted.' });
+    }
+  }
+
+  const { rows: regRows } = await query('SELECT count(*)::int AS n FROM registrations WHERE registered_by = $1', [id]);
+  if (regRows[0].n > 0) {
+    return res.status(409).json({
+      error: `This account registered ${regRows[0].n} vehicle(s). Delete or keep those records first, or just disable the account.`,
+    });
+  }
+
+  try {
+    await withTransaction(async (client) => {
+      await client.query('DELETE FROM scan_log WHERE scanned_by = $1', [id]);
+      await client.query('DELETE FROM district_scan_log WHERE scanned_by = $1', [id]);
+      await client.query('DELETE FROM users WHERE id = $1', [id]);
+    });
+  } catch (err) {
+    if (err.code === '23503') {
+      return res.status(409).json({ error: 'This account has activity on file (e.g. an edit log) — disable it instead.' });
+    }
+    throw err;
+  }
+
+  res.json({ ok: true, deleted: true });
+});
