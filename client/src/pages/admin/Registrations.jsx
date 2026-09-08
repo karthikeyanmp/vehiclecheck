@@ -38,6 +38,19 @@ export function Registrations() {
     }
   }
 
+  async function remove(row) {
+    if (!window.confirm(
+      `Delete registration ${row.permit_number} (${row.vehicle_number} — ${row.applicant_name})?\n\n`
+      + 'This permanently removes the record, its scan history and uploaded files. This cannot be undone.',
+    )) return;
+    try {
+      await api.del(`/api/registrations/${row.id}`);
+      load();
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
   return (
     <div className="page">
       <h1>All Registrations</h1>
@@ -87,7 +100,8 @@ export function Registrations() {
                   ) : (
                     <>
                       <button className="secondary" onClick={() => startEdit(r)}>Edit gate</button>{' '}
-                      <a href={api.fileUrl(`/api/registrations/${r.id}/certificate.pdf`)} target="_blank" rel="noreferrer">Certificate</a>
+                      <a href={api.fileUrl(`/api/registrations/${r.id}/certificate.pdf`)} target="_blank" rel="noreferrer">Certificate</a>{' '}
+                      <button className="danger" onClick={() => remove(r)}>Delete</button>
                     </>
                   )}
                 </td>

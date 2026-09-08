@@ -33,9 +33,13 @@ export function Login() {
 
   return (
     <div className="page-narrow">
-      <div className="card">
+      <div className="login-head">
+        <img src="/police-logo.jpg" alt="Tamil Nadu Police" />
+        <div className="title">Tamil Nadu Police</div>
+        <div className="subtitle">Emmanuel Sekaran Remembrance Day — Vehicle Permit System</div>
+      </div>
+      <div className="card login-card">
         <h1>Sign in</h1>
-        <p style={{ color: '#666', fontSize: 13 }}>Emmanuel Sekaran Remembrance Day — Vehicle Permit System</p>
         <form onSubmit={onSubmit}>
           <label>Username</label>
           <input value={username} onChange={(e) => setUsername(e.target.value)} autoFocus required />

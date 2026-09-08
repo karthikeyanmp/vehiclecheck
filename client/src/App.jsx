@@ -43,6 +43,7 @@ export default function App() {
 
           <Route path="*" element={<Home />} />
         </Routes>
+        <footer className="app-footer">Powered by <strong>Innovaisz Solutions</strong></footer>
       </AuthProvider>
     </BrowserRouter>
   );

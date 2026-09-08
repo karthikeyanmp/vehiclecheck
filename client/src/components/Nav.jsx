@@ -1,4 +1,4 @@
-import { Link, useNavigate } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext.jsx';
 
 const LINKS_BY_ROLE = {
@@ -24,10 +24,15 @@ export function Nav() {
 
   return (
     <nav className="nav">
-      <span className="nav-brand">Vehicle Permit — Emmanuel Sekaran Day</span>
+      <span className="nav-brand">
+        <img src="/police-logo.jpg" alt="Tamil Nadu Police" />
+        Vehicle Permit — Emmanuel Sekaran Day
+      </span>
       <div className="nav-links">
         {(LINKS_BY_ROLE[user.role] || []).map((l) => (
-          <Link key={l.to} to={l.to}>{l.label}</Link>
+          <NavLink key={l.to} to={l.to} end className={({ isActive }) => (isActive ? 'active' : undefined)}>
+            {l.label}
+          </NavLink>
         ))}
       </div>
       <div className="nav-user">

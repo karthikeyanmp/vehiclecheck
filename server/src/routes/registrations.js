@@ -223,6 +223,31 @@ registrationsRouter.patch('/:id', requireRole('registrar', 'admin'), async (req,
   res.json({ id: reg.id, changed: true, changes });
 });
 
+/**
+ * Hard-delete a registration and everything attached to it — scan history,
+ * district-scan history, edit log, co-passengers, uploaded files. Admin only;
+ * meant for clearing out test/mistaken records before go-live, so it's a real
+ * delete, not a soft flag.
+ */
+registrationsRouter.delete('/:id', requireRole('admin'), async (req, res) => {
+  const reg = await loadFullRegistration(req.params.id);
+  if (!reg) return res.status(404).json({ error: 'not found' });
+
+  await withTransaction(async (client) => {
+    await client.query('DELETE FROM scan_log WHERE registration_id = $1', [reg.id]);
+    await client.query('DELETE FROM district_scan_log WHERE registration_id = $1', [reg.id]);
+    await client.query('DELETE FROM admin_edit_log WHERE registration_id = $1', [reg.id]);
+    await client.query('DELETE FROM co_passengers WHERE registration_id = $1', [reg.id]);
+    await client.query('DELETE FROM registrations WHERE id = $1', [reg.id]);
+  });
+
+  for (const relPath of [reg.applicant_photo_path, reg.rc_copy_path, reg.vehicle_photo_path]) {
+    if (relPath) fs.unlink(absoluteUploadPath(relPath), () => {});
+  }
+
+  res.json({ id: reg.id, deleted: true });
+});
+
 /** Streams RC copy or applicant photo. Gate scanners never reach this route (photo is served via /scan/lookup instead). */
 registrationsRouter.get('/:id/file/:type', requireRole('registrar', 'admin'), async (req, res) => {
   const reg = await loadFullRegistration(req.params.id);
