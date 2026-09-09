@@ -83,7 +83,7 @@ usersRouter.post('/', async (req, res) => {
 });
 
 usersRouter.patch('/:id', async (req, res) => {
-  const { active, full_name, police_station_id, entry_point_id, password } = req.body || {};
+  const { active, username, full_name, police_station_id, entry_point_id, password } = req.body || {};
   const checkPostIds = req.body?.check_post_ids;
 
   if (password && password.length < 10) {
@@ -93,27 +93,41 @@ usersRouter.patch('/:id', async (req, res) => {
     return res.status(400).json({ error: 'full_name cannot be blank' });
   }
 
-  const notFound = await withTransaction(async (client) => {
-    const sets = [];
-    const values = [];
-    let i = 1;
+  let newUsername;
+  if (username !== undefined) {
+    newUsername = String(username).trim();
+    if (!newUsername) return res.status(400).json({ error: 'username cannot be blank' });
+    if (/\s/.test(newUsername)) return res.status(400).json({ error: 'username cannot contain spaces' });
+  }
 
-    if (active !== undefined) { sets.push(`active = $${i++}`); values.push(active); }
-    if (full_name !== undefined) { sets.push(`full_name = $${i++}`); values.push(full_name.trim()); }
-    if (police_station_id !== undefined) { sets.push(`police_station_id = $${i++}`); values.push(police_station_id || null); }
-    if (entry_point_id !== undefined) { sets.push(`entry_point_id = $${i++}`); values.push(entry_point_id || null); }
-    if (password) { sets.push(`password_hash = $${i++}`); values.push(await bcrypt.hash(password, 12)); }
+  let notFound;
+  try {
+    notFound = await withTransaction(async (client) => {
+      const sets = [];
+      const values = [];
+      let i = 1;
 
-    if (sets.length) {
-      values.push(req.params.id);
-      const { rows } = await client.query(`UPDATE users SET ${sets.join(', ')} WHERE id = $${i} RETURNING id`, values);
-      if (!rows[0]) return true;
-    }
-    if (Array.isArray(checkPostIds)) {
-      await setCheckPosts(client, req.params.id, checkPostIds.filter(Boolean));
-    }
-    return false;
-  });
+      if (active !== undefined) { sets.push(`active = $${i++}`); values.push(active); }
+      if (newUsername !== undefined) { sets.push(`username = $${i++}`); values.push(newUsername); }
+      if (full_name !== undefined) { sets.push(`full_name = $${i++}`); values.push(full_name.trim()); }
+      if (police_station_id !== undefined) { sets.push(`police_station_id = $${i++}`); values.push(police_station_id || null); }
+      if (entry_point_id !== undefined) { sets.push(`entry_point_id = $${i++}`); values.push(entry_point_id || null); }
+      if (password) { sets.push(`password_hash = $${i++}`); values.push(await bcrypt.hash(password, 12)); }
+
+      if (sets.length) {
+        values.push(req.params.id);
+        const { rows } = await client.query(`UPDATE users SET ${sets.join(', ')} WHERE id = $${i} RETURNING id`, values);
+        if (!rows[0]) return true;
+      }
+      if (Array.isArray(checkPostIds)) {
+        await setCheckPosts(client, req.params.id, checkPostIds.filter(Boolean));
+      }
+      return false;
+    });
+  } catch (err) {
+    if (err.code === '23505') return res.status(409).json({ error: 'That username is already taken' });
+    throw err;
+  }
 
   if (notFound) return res.status(404).json({ error: 'user not found' });
   res.json({ ok: true });

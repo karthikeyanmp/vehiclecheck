@@ -82,6 +82,7 @@ export function Users() {
     setError('');
     setEditId(u.id);
     setDraft({
+      username: u.username,
       full_name: u.full_name,
       police_station_id: u.police_station_id ? String(u.police_station_id) : '',
       check_post_ids: (u.checkpoints || []).map((c) => String(c.id)),
@@ -101,6 +102,14 @@ export function Users() {
 
   async function saveEdit(u) {
     setError('');
+    if (!draft.username.trim()) {
+      setError('Username cannot be blank.');
+      return;
+    }
+    if (/\s/.test(draft.username)) {
+      setError('Username cannot contain spaces.');
+      return;
+    }
     if (u.role === 'registrar' && !draft.police_station_id) {
       setError('A registering officer must have a police station.');
       return;
@@ -110,6 +119,7 @@ export function Users() {
       return;
     }
     const payload = {
+      username: draft.username.trim(),
       full_name: draft.full_name,
       police_station_id: draft.police_station_id || null,
     };
@@ -215,6 +225,10 @@ export function Users() {
                   <tr>
                     <td colSpan={7} style={{ background: '#f8f9fc' }}>
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, maxWidth: 640 }}>
+                        <div>
+                          <label>Username (used to log in)</label>
+                          <input value={draft.username} onChange={(e) => setDraftField('username', e.target.value)} />
+                        </div>
                         <div>
                           <label>Full name</label>
                           <input value={draft.full_name} onChange={(e) => setDraftField('full_name', e.target.value)} />
