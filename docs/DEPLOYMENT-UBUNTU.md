@@ -64,11 +64,32 @@ blast radius small if the app's credentials ever leak.
 ```bash
 # unprivileged account to own and run the app
 sudo useradd --system --create-home --home-dir /opt/vehicle-permit --shell /usr/sbin/nologin vehiclepermit
+```
 
-# clone into it
-sudo -u vehiclepermit git clone https://github.com/karthikeyanmp/vehiclecheck.git /opt/vehicle-permit/app
+**If the GitHub repo is private**, a plain `git clone` will prompt for a
+username/password and fail — GitHub no longer accepts account passwords here.
+Set up a read-only **deploy key** for the service user:
+
+```bash
+sudo -u vehiclepermit -H mkdir -p /opt/vehicle-permit/.ssh
+sudo -u vehiclepermit -H ssh-keygen -t ed25519 -N "" -f /opt/vehicle-permit/.ssh/id_ed25519
+sudo -u vehiclepermit -H ssh-keyscan github.com | sudo -u vehiclepermit tee -a /opt/vehicle-permit/.ssh/known_hosts
+sudo -u vehiclepermit -H cat /opt/vehicle-permit/.ssh/id_ed25519.pub
+```
+
+Copy that public key into GitHub: **repo → Settings → Deploy keys → Add deploy
+key** — paste it, leave *Allow write access* unchecked, Add. Then clone over
+SSH:
+
+```bash
+sudo -u vehiclepermit -H git clone git@github.com:karthikeyanmp/vehiclecheck.git /opt/vehicle-permit/app
 cd /opt/vehicle-permit/app
 ```
+
+(A **public** repo needs none of this — just
+`sudo -u vehiclepermit -H git clone https://github.com/karthikeyanmp/vehiclecheck.git /opt/vehicle-permit/app`.)
+
+Later `git pull`s from the service user will use the same key automatically.
 
 ## 4. Configure
 
