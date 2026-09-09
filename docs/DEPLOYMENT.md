@@ -6,9 +6,11 @@ This guide walks through deploying the platform onto a server you control, with
 your own domain and HTTPS. Every step includes an explanation of *why* it's
 needed so you can adapt it to your environment.
 
-> Deploying on a **Windows machine**? See
-> [DEPLOYMENT-WINDOWS.md](DEPLOYMENT-WINDOWS.md) for a step-by-step manual
-> install (Node, PostgreSQL, NSSM services, Caddy).
+> Prefer a single self-contained walkthrough for one OS?
+> - **Ubuntu + Nginx:** [DEPLOYMENT-UBUNTU.md](DEPLOYMENT-UBUNTU.md)
+> - **Windows:** [DEPLOYMENT-WINDOWS.md](DEPLOYMENT-WINDOWS.md)
+>
+> The sections below cover Docker and the generic manual install in more depth.
 
 ---
 
