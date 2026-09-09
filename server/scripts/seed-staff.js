@@ -3,27 +3,35 @@
 //   * one Check Post Officer per check post         -> gate1, gate2, …
 //     (assigned that one check post + its managing police station)
 //
-// Existing usernames are skipped, so it's safe to re-run.
+// Existing usernames are skipped, so a plain re-run only fills gaps.
 //
 // Usage:
-//   node scripts/seed-staff.js <baseUrl> <adminUser> <adminPassword> [sharedPassword]
+//   node scripts/seed-staff.js <baseUrl> <adminUser> <adminPassword> <sharedPassword> [--reset]
 // e.g.
 //   node scripts/seed-staff.js https://vehicle-permit.onrender.com admin 'AdminPass123' 'Thanjavur@2026'
+//   node scripts/seed-staff.js https://vehicle-permit.onrender.com admin 'AdminPass123' 'Thanjavur@2026' --reset
 //
-// If sharedPassword is omitted a random one is generated and printed. All
-// seeded accounts get the same temporary password — reset individual ones
-// from Admin → Users afterwards if you need to.
+// --reset  first deletes EVERY existing registrar / check-post / gate account
+//          (never the admin), then recreates the full set cleanly. Use this to
+//          fix up an inconsistent earlier run. Accounts that can't be deleted
+//          (e.g. they already registered vehicles) are left alone and reported.
+//
+// If sharedPassword is omitted a random one is generated and printed. Every
+// account created in this run gets that same temporary password.
 
 import crypto from 'node:crypto';
 
-const [, , rawBase, adminUser, adminPass, sharedPasswordArg] = process.argv;
+const args = process.argv.slice(2);
+const RESET = args.includes('--reset');
+const [rawBase, adminUser, adminPass, sharedPasswordArg] = args.filter((a) => a !== '--reset');
 
 if (!rawBase || !adminUser || !adminPass) {
-  console.error('Usage: node scripts/seed-staff.js <baseUrl> <adminUser> <adminPassword> [sharedPassword]');
+  console.error('Usage: node scripts/seed-staff.js <baseUrl> <adminUser> <adminPassword> <sharedPassword> [--reset]');
   process.exit(1);
 }
 const API = rawBase.replace(/\/+$/, '');
 const SHARED_PASSWORD = sharedPasswordArg || `Tnpolice-${crypto.randomBytes(4).toString('hex')}`;
+const STAFF_ROLES = new Set(['registrar', 'district_scanner', 'gate_scanner']);
 
 async function readJson(res) {
   const text = await res.text();
@@ -62,7 +70,7 @@ function levenshtein(a, b) {
 function matchStation(stations, wantedName) {
   if (!wantedName) return null;
   const want = norm(wantedName);
-  let exact = stations.find((s) => norm(s.station_name) === want);
+  const exact = stations.find((s) => norm(s.station_name) === want);
   if (exact) return exact;
   let best = null;
   let bestD = Infinity;
@@ -74,13 +82,29 @@ function matchStation(stations, wantedName) {
 }
 
 async function main() {
-  const { token } = await readJson(await fetch(`${API}/api/auth/login`, {
+  const { token, user: me } = await readJson(await fetch(`${API}/api/auth/login`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ username: adminUser, password: adminPass }),
   }));
   const auth = { Authorization: `Bearer ${token}` };
   console.log('Logged in as admin.\n');
+
+  if (RESET) {
+    const existing = await readJson(await fetch(`${API}/api/users`, { headers: auth }));
+    const toDelete = existing.filter((u) => STAFF_ROLES.has(u.role) && u.id !== me.id);
+    console.log(`--reset: deleting ${toDelete.length} existing staff account(s)…`);
+    for (const u of toDelete) {
+      const res = await fetch(`${API}/api/users/${u.id}`, { method: 'DELETE', headers: auth });
+      if (res.ok) {
+        console.log(`  deleted  ${u.username}`);
+      } else {
+        const body = await readJson(res).catch((e) => e.message);
+        console.log(`  KEPT     ${u.username}  (${typeof body === 'object' ? body.error : body})`);
+      }
+    }
+    console.log('');
+  }
 
   const stations = (await readJson(await fetch(`${API}/api/master-data/police-stations`, { headers: auth })))
     .sort((a, b) => a.station_name.localeCompare(b.station_name));
@@ -112,11 +136,10 @@ async function main() {
       full_name: `Registering Officer - ${stations[i].station_name}`,
       role: 'registrar', police_station_id: stations[i].id,
     });
-    console.log(`  ${username.padEnd(7)} ${status.padEnd(8)} ${stations[i].station_name}`);
-    rows.push({ username, role: 'Registering Officer', station: stations[i].station_name, check_post: '', status });
+    rows.push({ username, role: 'Registering Officer', station: stations[i].station_name, check_post: '-', status });
   }
 
-  console.log(`\nCheck Post Officers (one per check post, ${checkPosts.length}):`);
+  console.log(`Check Post Officers (one per check post, ${checkPosts.length}):`);
   for (let i = 0; i < checkPosts.length; i++) {
     const username = `gate${i + 1}`;
     const cp = checkPosts[i];
@@ -128,14 +151,23 @@ async function main() {
       police_station_id: station ? station.id : undefined,
       check_post_ids: [cp.id],
     });
-    const stationNote = station ? station.station_name : '(no station match — set manually)';
-    console.log(`  ${username.padEnd(7)} ${status.padEnd(8)} ${cp.name}  ->  ${stationNote}`);
-    rows.push({ username, role: 'Check Post Officer', station: station ? station.station_name : '', check_post: cp.name, status });
+    rows.push({
+      username, role: 'Check Post Officer',
+      station: station ? station.station_name : '(set manually)',
+      check_post: cp.name, status,
+    });
+  }
+
+  console.log('\n  USERNAME  ROLE                 STATION                 CHECK POST                        STATUS');
+  for (const r of rows) {
+    console.log(
+      `  ${r.username.padEnd(9)} ${r.role.padEnd(20)} ${r.station.padEnd(23)} ${r.check_post.padEnd(33)} ${r.status}`,
+    );
   }
 
   const created = rows.filter((r) => r.status === 'created').length;
   console.log(`\nDone. ${created} account(s) created, ${rows.length - created} already existed.`);
-  console.log(`Temporary password for every account created now: ${SHARED_PASSWORD}`);
+  console.log(`Temporary password for every account created in this run: ${SHARED_PASSWORD}`);
   console.log('Reset individual passwords from Admin -> Users if needed.');
 }
 
